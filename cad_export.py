@@ -15,9 +15,12 @@ from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
 from ezdxf.addons.drawing.config import Configuration, BackgroundPolicy, ColorPolicy
 
 import matplotlib
-matplotlib.use("Agg")  # Headless rendering
-import matplotlib.backends.backend_pdf  # Explicitly import for PyInstaller bundling
-import matplotlib.backends.backend_agg  # Explicitly import for PyInstaller bundling
+# Hint both backends for PyInstaller scanner
+matplotlib.use("pdf")
+matplotlib.use("Agg")
+
+import matplotlib.backends.backend_pdf as backend_pdf
+import matplotlib.backends.backend_agg as backend_agg
 import matplotlib.pyplot as plt
 from PIL import Image
 
@@ -41,6 +44,9 @@ def _render_dxf_to_figure(
     cfg = Configuration.defaults().with_changes(
         background_policy=bg_policy,
         color_policy=ColorPolicy.COLOR,
+        circle_approximation_count=48,
+        hatching_timeout=1.0,
+        min_hatch_line_distance=0.01,
     )
 
     if progress_callback:
@@ -77,7 +83,11 @@ def export_dxf_to_pdf(
     try:
         if progress_callback:
             progress_callback("Vektör PDF dosyası derleniyor...", 88)
-        fig.savefig(pdf_path, format="pdf", bbox_inches="tight")
+        
+        # Direct PDF export using PdfPages (bypasses any dynamic backend string lookup)
+        with backend_pdf.PdfPages(pdf_path) as pdf:
+            pdf.savefig(fig, bbox_inches="tight")
+
         if progress_callback:
             progress_callback("PDF başarıyla kaydedildi.", 100)
     finally:
