@@ -1,13 +1,21 @@
-# Netcad NCZ Encoder / Decoder & DXF Çevirici Kütüphanesi
+# 🛠️ NCZ Forge
 
-Bu kütüphane ve araç seti, Netcad'in tescilli ikili (binary) formatı olan **.NCZ** dosyalarını okumak, ayrıştırmak (parse), sıfırdan oluşturmak ve **AutoCAD DXF / DWG dosyalarını NCZ formatına dönüştürmek (encode)** amacıyla geliştirilmiştir.
+<p align="center">
+  <img src="assets/app_icon.png" width="140" alt="NCZ Forge Logo"/>
+  <br/>
+  <b>Netcad NCZ & CAD Çevirici, Vektör PDF ve Yüksek Çözünürlüklü TIF Dışa Aktarma Paketi</b>
+</p>
+
+---
+
+**NCZ Forge**, Netcad'in tescilli ikili (binary) formatı olan **.NCZ** dosyalarını okumak, ayrıştırmak (parse), sıfırdan oluşturmak, **AutoCAD DXF / DWG dosyalarını NCZ formatına dönüştürmek (encode)** ve yüksek kaliteli **PDF / TIFF** çıktıları almak için geliştirilmiş modern ve bağımsız bir araç setidir.
 
 ---
 
 ## 🚀 Hızlı Başlangıç
 
 ### 🖥️ 1. Masaüstü Uygulaması (Terminalsiz - İki Yönlü + PDF/TIF Aktarımı)
-Klasördeki **`dxftoncz.exe`** dosyasına çift tıklayarak modern pencereli arayüzü açabilirsiniz:
+Klasördeki **`NCZ Forge.exe`** (veya `dxftoncz.exe`) dosyasına çift tıklayarak modern pencereli arayüzü açabilirsiniz:
 * **Sekme 1 (DXF ➔ NCZ):** AutoCAD DXF çiziminizi Netcad NCZ formatına dönüştürür. Ayrıca seçilen DXF'i tek tıkla doğrudan PDF veya TIF yapabilir.
 * **Sekme 2 (NCZ ➔ DXF):** Netcad NCZ dosyanızı AutoCAD DXF formatına dönüştürür. Ayrıca seçilen NCZ'yi tek tıkla doğrudan PDF veya TIF yapabilir.
 * **Sekme 3 (PDF & TIF Dışa Aktar):** Hem NCZ hem DXF dosyalarını yüksek çözünürlüklü vektör **PDF** veya sıkıştırılmış raster **TIF (TIFF)** formatlarına dönüştürür. Çözünürlük (150, 300, 600 DPI) ve arka plan rengi (Beyaz/Siyah) seçilebilir.

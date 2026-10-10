@@ -38,9 +38,27 @@ except Exception:
 class DxfNczConverterApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("NCZ & DXF Dönüştürücü ve PDF/TIF Aktarıcı v3.0")
-        self.root.geometry("700x650")
-        self.root.minsize(650, 590)
+        self.root.title("NCZ Forge - Netcad NCZ & CAD Çevirici ve Dışa Aktarıcı")
+        self.root.geometry("720x660")
+        self.root.minsize(660, 600)
+
+        # Base dir for bundled assets
+        self.base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.argv[0])))
+
+        # Set window icon
+        ico_path = os.path.join(self.base_dir, "app_icon.ico")
+        png_path = os.path.join(self.base_dir, "app_icon.png")
+        if os.path.exists(ico_path):
+            try:
+                self.root.iconbitmap(ico_path)
+            except Exception:
+                pass
+        if os.path.exists(png_path):
+            try:
+                self._app_icon_img = tk.PhotoImage(file=png_path)
+                self.root.iconphoto(True, self._app_icon_img)
+            except Exception:
+                pass
 
         # Style configuration
         self.style = ttk.Style()
@@ -82,8 +100,7 @@ class DxfNczConverterApp:
         self.exp_bg_var = tk.StringVar(value="white")
 
         # Set default template
-        base_dir = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.argv[0])))
-        cand_template = os.path.join(base_dir, "103_11.NCZ")
+        cand_template = os.path.join(self.base_dir, "103_11.NCZ")
         if not os.path.exists(cand_template):
             cand_template = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "103_11.NCZ")
         if os.path.exists(cand_template):
@@ -137,28 +154,44 @@ class DxfNczConverterApp:
             )
 
     def _build_ui(self):
-        # Header banner
-        header_frame = tk.Frame(self.root, bg=self.primary_color, height=65)
+        # Header banner (Modern dark slate)
+        header_frame = tk.Frame(self.root, bg="#0f172a", height=72)
         header_frame.pack(fill=tk.X, side=tk.TOP)
         header_frame.pack_propagate(False)
 
+        # Load header logo
+        logo_path = os.path.join(self.base_dir, "header_logo.png")
+        if not os.path.exists(logo_path):
+            logo_path = os.path.join(self.base_dir, "assets", "header_logo.png")
+
+        if os.path.exists(logo_path):
+            try:
+                self._header_logo_img = tk.PhotoImage(file=logo_path)
+                logo_lbl = tk.Label(header_frame, image=self._header_logo_img, bg="#0f172a")
+                logo_lbl.pack(side=tk.LEFT, padx=(16, 12), pady=12)
+            except Exception:
+                pass
+
+        text_container = tk.Frame(header_frame, bg="#0f172a")
+        text_container.pack(side=tk.LEFT, fill=tk.Y, pady=12)
+
         title_lbl = tk.Label(
-            header_frame,
-            text="NCZ ⮂ DXF Dönüştürücü & PDF/TIF Aktarıcı",
-            font=("Segoe UI", 15, "bold"),
-            fg="#ffffff",
-            bg=self.primary_color,
+            text_container,
+            text="NCZ Forge",
+            font=("Segoe UI", 16, "bold"),
+            fg="#38bdf8",
+            bg="#0f172a",
         )
-        title_lbl.pack(anchor="w", padx=20, pady=(10, 0))
+        title_lbl.pack(anchor="w")
 
         subtitle_lbl = tk.Label(
-            header_frame,
-            text="Netcad (NCZ) & AutoCAD (DXF) ➔ NCZ, DXF, PDF ve TIF Çıktıları",
+            text_container,
+            text="Netcad (NCZ) ⮂ AutoCAD (DXF) Dönüştürücü, Vektör PDF & TIF Dışa Aktarımı",
             font=("Segoe UI", 9),
-            fg="#d0e2ff",
-            bg=self.primary_color,
+            fg="#94a3b8",
+            bg="#0f172a",
         )
-        subtitle_lbl.pack(anchor="w", padx=20, pady=(0, 10))
+        subtitle_lbl.pack(anchor="w")
 
         # Main notebook (Tabs)
         main_frame = tk.Frame(self.root, bg=self.bg_color)
