@@ -12,7 +12,12 @@ from typing import Optional, Callable
 import ezdxf
 from ezdxf.addons.drawing import RenderContext, Frontend
 from ezdxf.addons.drawing.matplotlib import MatplotlibBackend
-from ezdxf.addons.drawing.config import Configuration, BackgroundPolicy, ColorPolicy
+from ezdxf.addons.drawing.config import (
+    Configuration,
+    BackgroundPolicy,
+    ColorPolicy,
+    HatchPolicy,
+)
 
 import matplotlib
 # Hint both backends for PyInstaller scanner
@@ -30,23 +35,45 @@ from ncz_to_dxf import convert_ncz_to_dxf
 def _render_dxf_to_figure(
     doc: ezdxf.document.Drawing,
     bg: str = "white",
-    figsize=(14, 10),
+    figsize=None,
     progress_callback: Optional[Callable[[str, int], None]] = None,
 ) -> plt.Figure:
-    """Render a DXF modelspace layout into a matplotlib Figure."""
+    """Render a DXF modelspace layout into a matplotlib Figure with clean technical CAD lineweights."""
     if progress_callback:
-        progress_callback("Modelspace ve tabakalar taranıyor...", 45)
+        progress_callback("Modelspace ve çizim sınırları taranıyor...", 35)
 
     msp = doc.modelspace()
     bg_policy = (
         BackgroundPolicy.WHITE if bg.lower() == "white" else BackgroundPolicy.BLACK
     )
+
+    # Calculate optimal canvas aspect ratio based on drawing bounding box
+    if figsize is None:
+        try:
+            from ezdxf import bbox
+            box = bbox.extents(msp)
+            dx = max(box.extmax.x - box.extmin.x, 10.0)
+            dy = max(box.extmax.y - box.extmin.y, 10.0)
+            aspect = dx / dy
+            if aspect >= 1.0:
+                fig_w = min(max(16.0 * (aspect ** 0.35), 18.0), 48.0)
+                fig_h = max(fig_w / aspect, 8.0)
+            else:
+                fig_h = min(max(14.0 / (aspect ** 0.35), 16.0), 40.0)
+                fig_w = max(fig_h * aspect, 8.0)
+            figsize = (fig_w, fig_h)
+        except Exception:
+            figsize = (20, 14)
+
     cfg = Configuration.defaults().with_changes(
         background_policy=bg_policy,
         color_policy=ColorPolicy.COLOR,
+        hatch_policy=HatchPolicy.SHOW_OUTLINE,  # Show boundary outlines of beams/hatches, avoid solid opaque blocks
+        lineweight_scaling=0.15,                 # Scale lineweights so borders and beams do not become giant bars
+        min_lineweight=0.25,                     # Keep clean, sharp vector hairlines visible
         circle_approximation_count=48,
-        hatching_timeout=1.0,
-        min_hatch_line_distance=0.01,
+        hatching_timeout=0.2,                    # Fast hatching timeout
+        min_hatch_line_distance=0.02,
     )
 
     if progress_callback:
