@@ -1,12 +1,21 @@
 # 🛠️ NCZ Forge
 
 <p align="center">
-  <img src="assets/app_icon.png" width="140" alt="NCZ Forge Logo"/>
+  <img src="ncz-forge.png" width="140" alt="NCZ Forge Logo"/>
   <br/>
   <b>Netcad NCZ & CAD Çevirici, Vektör PDF ve Yüksek Çözünürlüklü TIF Dışa Aktarma Paketi</b>
+  <br/><br/>
+  <a href="https://github.com/evrek4/dxftoncz/releases/download/v1.0/NCZ.Forge.exe">
+    <img src="https://img.shields.io/badge/%C4%B0ndir-NCZ%20Forge%20v1.0%20(Windows%20Exe)-0066cc?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows Exe"/>
+  </a>
+  <a href="https://github.com/evrek4/dxftoncz/releases/tag/v1.0">
+    <img src="https://img.shields.io/badge/S%C3%BCr%C3%BCm-v1.0-success?style=for-the-badge" alt="Release v1.0"/>
+  </a>
 </p>
 
 ---
+
+> 🚀 **Kurulum Gerektirmez (Portable):** [**NCZ.Forge.exe (v1.0 İndir)**](https://github.com/evrek4/dxftoncz/releases/download/v1.0/NCZ.Forge.exe) dosyasını indirip doğrudan çift tıklayarak çalıştırabilirsiniz.
 
 **NCZ Forge**, Netcad'in tescilli ikili (binary) formatı olan **.NCZ** dosyalarını okumak, ayrıştırmak (parse), sıfırdan oluşturmak, **AutoCAD DXF / DWG dosyalarını NCZ formatına dönüştürmek (encode)** ve yüksek kaliteli **PDF / TIFF** çıktıları almak için geliştirilmiş modern ve bağımsız bir araç setidir.
 
