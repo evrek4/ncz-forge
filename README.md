@@ -6,11 +6,18 @@ Bu kütüphane ve araç seti, Netcad'in tescilli ikili (binary) formatı olan **
 
 ## 🚀 Hızlı Başlangıç
 
-### 🖥️ 1. Masaüstü Uygulaması (Terminalsiz - İki Yönlü)
+### 🖥️ 1. Masaüstü Uygulaması (Terminalsiz - İki Yönlü + PDF/TIF Aktarımı)
 Klasördeki **`dxftoncz.exe`** dosyasına çift tıklayarak modern pencereli arayüzü açabilirsiniz:
-* **Sekme 1 (DXF ➔ NCZ):** AutoCAD DXF çiziminizi Netcad NCZ formatına dönüştürür.
-* **Sekme 2 (NCZ ➔ DXF):** Netcad NCZ dosyanızı AutoCAD DXF formatına dönüştürür.
-* **Sürükle & Bırak:** Bir `.dxf` dosyasını `dxftoncz.exe` üzerine bıraktığınızda otomatik olarak **DXF ➔ NCZ** sekmesi; bir `.ncz` dosyasını bıraktığınızda ise **NCZ ➔ DXF** sekmesi açılır ve dosya yüklenir.
+* **Sekme 1 (DXF ➔ NCZ):** AutoCAD DXF çiziminizi Netcad NCZ formatına dönüştürür. Ayrıca seçilen DXF'i tek tıkla doğrudan PDF veya TIF yapabilir.
+* **Sekme 2 (NCZ ➔ DXF):** Netcad NCZ dosyanızı AutoCAD DXF formatına dönüştürür. Ayrıca seçilen NCZ'yi tek tıkla doğrudan PDF veya TIF yapabilir.
+* **Sekme 3 (PDF & TIF Dışa Aktar):** Hem NCZ hem DXF dosyalarını yüksek çözünürlüklü vektör **PDF** veya sıkıştırılmış raster **TIF (TIFF)** formatlarına dönüştürür. Çözünürlük (150, 300, 600 DPI) ve arka plan rengi (Beyaz/Siyah) seçilebilir.
+* **Sürükle & Bırak:** Dosyaları doğrudan pencereye veya dosya seçiciye sürükleyip bırakabilirsiniz.
+
+---
+
+## 💻 Komut Satırı (CLI) Kullanımı
+
+### 1. Dosya Bilgisi Görüntüleme
 ```bash
 python ncz_tool.py info 103_11.NCZ
 ```
@@ -30,7 +37,22 @@ python ncz_tool.py dxf2ncz girdi.dxf cikti.NCZ --template 103_11.NCZ
 python ncz_tool.py ncz2dxf 103_11.NCZ 103_11.dxf
 ```
 
-### 4. NCZ Dosyasını Yeniden Encode Etme (Re-encode)
+### 4. PDF ve TIF Dışa Aktarma (NCZ / DXF to PDF & TIF)
+```bash
+# NCZ -> Vektör PDF
+python ncz_tool.py ncz2pdf 103_11.NCZ 103_11.pdf
+
+# NCZ -> Yüksek Çözünürlüklü TIF (DPI ayarlanabilir, örn: 300)
+python ncz_tool.py ncz2tif 103_11.NCZ 103_11.tif --dpi 300
+
+# DXF -> Vektör PDF
+python ncz_tool.py dxf2pdf 103_11.dxf 103_11.pdf
+
+# DXF -> Yüksek Çözünürlüklü TIF
+python ncz_tool.py dxf2tif 103_11.dxf 103_11.tif --dpi 300
+```
+
+### 5. NCZ Dosyasını Yeniden Encode Etme (Re-encode)
 ```bash
 python ncz_tool.py reencode 103_11.NCZ 103_11_reencoded.NCZ
 ```
