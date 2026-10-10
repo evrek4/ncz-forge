@@ -31,11 +31,15 @@ def clean_mtext(raw_text: str) -> str:
     return text.strip()
 
 
+from typing import Optional, Callable
+
+
 def convert_dxf_to_ncz(
     dxf_path: str,
     ncz_path: str,
     template_path: Optional[str] = None,
     swap_xy: bool = False,
+    progress_callback: Optional[Callable[[str, int], None]] = None,
 ) -> int:
     """
     Convert a DXF drawing into Netcad NCZ binary format.
@@ -44,10 +48,14 @@ def convert_dxf_to_ncz(
     :param ncz_path: Path to output NCZ file.
     :param template_path: Optional template NCZ to inherit projection/styles.
     :param swap_xy: If True, swap X and Y coordinates on import.
+    :param progress_callback: Optional callback receiving (step_text, percent).
     :return: Number of converted entities.
     """
     if not os.path.exists(dxf_path):
         raise FileNotFoundError(f"Input DXF file not found: {dxf_path}")
+
+    if progress_callback:
+        progress_callback("DXF dosyası okunuyor...", 15)
 
     # Auto-detect default template if none provided
     if not template_path:
@@ -62,9 +70,15 @@ def convert_dxf_to_ncz(
     msp = doc.modelspace()
     writer = NCZWriter(template_path=template_path)
 
+    if progress_callback:
+        progress_callback("Tabakalar aktarılıyor...", 30)
+
     # Register all layers from DXF
     for layer in doc.layers:
         writer.add_layer(layer.dxf.name, color_code=layer.dxf.color)
+
+    if progress_callback:
+        progress_callback("CAD objeleri NCZ formatına kodlanıyor...", 60)
 
     entity_count = 0
 
@@ -157,7 +171,11 @@ def convert_dxf_to_ncz(
             writer.add_text(x, y, text, height=height, rotation_deg=rotation, z=z, layer=layer_name, color=color)
             entity_count += 1
 
+    if progress_callback:
+        progress_callback("NCZ ikili dosyası derlenip kaydediliyor...", 90)
     file_size = writer.save(ncz_path)
+    if progress_callback:
+        progress_callback(f"Tamamlandı ({entity_count} obje).", 100)
     return entity_count
 
 

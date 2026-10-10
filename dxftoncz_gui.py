@@ -297,7 +297,7 @@ class DxfNczConverterApp:
         self.btn_convert_d2n.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
         # Quick Export Buttons for DXF
-        tk.Button(
+        self.btn_d2n_pdf = tk.Button(
             btn_box,
             text="📄 PDF Yap",
             command=lambda: self.quick_export_dxf("pdf"),
@@ -308,9 +308,10 @@ class DxfNczConverterApp:
             cursor="hand2",
             padx=10,
             pady=6,
-        ).pack(side=tk.LEFT, padx=(0, 4))
+        )
+        self.btn_d2n_pdf.pack(side=tk.LEFT, padx=(0, 4))
 
-        tk.Button(
+        self.btn_d2n_tif = tk.Button(
             btn_box,
             text="🖼️ TIF Yap",
             command=lambda: self.quick_export_dxf("tif"),
@@ -321,15 +322,35 @@ class DxfNczConverterApp:
             cursor="hand2",
             padx=10,
             pady=6,
-        ).pack(side=tk.LEFT)
+        )
+        self.btn_d2n_tif.pack(side=tk.LEFT)
 
-        # Status & Progress
-        self.status_d2n_lbl = tk.Label(self.tab_d2n, text="DXF dosyanızı seçin veya sürükleyin.", font=("Segoe UI", 8, "italic"), fg="#666666", bg=self.bg_color)
-        self.status_d2n_lbl.pack(fill=tk.X, pady=(0, 2))
-        self.prog_d2n = ttk.Progressbar(self.tab_d2n, mode="indeterminate")
+        # Status & Progress Frame
+        prog_frame_1 = tk.Frame(self.tab_d2n, bg=self.bg_color)
+        prog_frame_1.pack(fill=tk.X, pady=(6, 2))
+
+        self.status_d2n_lbl = tk.Label(prog_frame_1, text="DXF dosyanızı seçin veya sürükleyin.", font=("Segoe UI", 9), fg="#666666", bg=self.bg_color)
+        self.status_d2n_lbl.pack(anchor="w", pady=(0, 2))
+        self.prog_d2n = ttk.Progressbar(prog_frame_1, mode="determinate", maximum=100)
+        self.prog_d2n.pack(fill=tk.X, pady=(0, 4))
 
         self.btn_open_folder_d2n = tk.Button(self.tab_d2n, text="📁 Çıktı Klasörünü Aç", command=lambda: self.open_folder(self.d2n_ncz_var.get()), font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, state=tk.DISABLED)
         self.btn_open_folder_d2n.pack(anchor="e")
+
+    def _set_d2n_buttons_state(self, state):
+        self.btn_convert_d2n.config(state=state)
+        self.btn_d2n_pdf.config(state=state)
+        self.btn_d2n_tif.config(state=state)
+
+    def _update_prog_step(self, prog: ttk.Progressbar, lbl: tk.Label, text: str, pct: int):
+        prog["value"] = pct
+        lbl.config(text=f"[{pct}%] {text}", fg="#0066cc")
+
+    def _on_task_error(self, err_msg: str, title: str, lbl: tk.Label, prog: ttk.Progressbar, state_fn):
+        prog["value"] = 0
+        state_fn(tk.NORMAL)
+        lbl.config(text=f"Hata: {err_msg[:60]}", fg="#cc0000")
+        messagebox.showerror("Hata", f"{title} sırasında hata oluştu:\n\n{err_msg}", parent=self.root)
 
     def _set_d2n_drop_active(self, filename: str):
         size_kb = os.path.getsize(filename) / 1024.0 if os.path.exists(filename) else 0
@@ -349,6 +370,7 @@ class DxfNczConverterApp:
         base, _ = os.path.splitext(filename)
         self.d2n_ncz_var.set(base + ".NCZ")
         self.exp_input_var.set(filename)
+        self.prog_d2n["value"] = 0
         self.status_d2n_lbl.config(text=f"Seçilen dosya: {os.path.basename(filename)} - Hazır.", fg="#0066cc")
 
     def browse_d2n_ncz(self):
@@ -368,66 +390,71 @@ class DxfNczConverterApp:
         swap_xy = self.d2n_swap_xy_var.get()
 
         if not dxf_path or not os.path.exists(dxf_path):
-            messagebox.showwarning("Uyarı", "Lütfen geçerli bir DXF dosyası seçin veya sürükleyin.")
+            messagebox.showwarning("Uyarı", "Lütfen geçerli bir DXF dosyası seçin veya sürükleyin.", parent=self.root)
             return
         if not ncz_path:
-            messagebox.showwarning("Uyarı", "Lütfen bir çıktı NCZ dosyası belirleyin.")
+            messagebox.showwarning("Uyarı", "Lütfen bir çıktı NCZ dosyası belirleyin.", parent=self.root)
             return
 
-        self.btn_convert_d2n.config(state=tk.DISABLED)
-        self.prog_d2n.pack(fill=tk.X, pady=(0, 4))
-        self.prog_d2n.start(10)
-        self.status_d2n_lbl.config(text="NCZ'ye dönüştürülüyor...", fg="#0066cc")
+        self._set_d2n_buttons_state(tk.DISABLED)
+        self._update_prog_step(self.prog_d2n, self.status_d2n_lbl, "NCZ'ye dönüştürme başlatılıyor...", 5)
 
-        threading.Thread(target=self._worker_d2n, args=(dxf_path, ncz_path, template_path, swap_xy), daemon=True).start()
+        def cb(msg, pct):
+            self.root.after(0, lambda: self._update_prog_step(self.prog_d2n, self.status_d2n_lbl, msg, pct))
 
-    def _worker_d2n(self, dxf_path, ncz_path, template_path, swap_xy):
-        try:
-            cnt = convert_dxf_to_ncz(dxf_path=dxf_path, ncz_path=ncz_path, template_path=template_path, swap_xy=swap_xy)
-            size_kb = os.path.getsize(ncz_path) / 1024.0
-            self.root.after(0, self._on_d2n_success, ncz_path, cnt, size_kb)
-        except Exception as ex:
-            self.root.after(0, self._on_d2n_error, str(ex))
+        def worker():
+            try:
+                cnt = convert_dxf_to_ncz(dxf_path=dxf_path, ncz_path=ncz_path, template_path=template_path, swap_xy=swap_xy, progress_callback=cb)
+                size_kb = os.path.getsize(ncz_path) / 1024.0
+                self.root.after(0, lambda: self._on_d2n_success(ncz_path, cnt, size_kb))
+            except Exception as ex:
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, "DXF ➔ NCZ Dönüştürme", self.status_d2n_lbl, self.prog_d2n, self._set_d2n_buttons_state))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _on_d2n_success(self, ncz_path: str, count: int, size_kb: float):
-        self.prog_d2n.stop()
-        self.prog_d2n.pack_forget()
-        self.btn_convert_d2n.config(state=tk.NORMAL)
+        self.prog_d2n["value"] = 100
+        self._set_d2n_buttons_state(tk.NORMAL)
         self.btn_open_folder_d2n.config(state=tk.NORMAL)
         msg = f"NCZ dosyası başarıyla oluşturuldu!\n\nDosya: {os.path.basename(ncz_path)}\nToplam Obje: {count:,} adet\nBoyut: {size_kb:.1f} KB"
         self.status_d2n_lbl.config(text=f"✓ Dönüştürme başarılı! ({count} obje, {size_kb:.1f} KB)", fg=self.success_color)
-        messagebox.showinfo("Dönüştürme Başarılı", msg)
-
-    def _on_d2n_error(self, err_msg: str):
-        self.prog_d2n.stop()
-        self.prog_d2n.pack_forget()
-        self.btn_convert_d2n.config(state=tk.NORMAL)
-        self.status_d2n_lbl.config(text="Hata oluştu!", fg="#cc0000")
-        messagebox.showerror("Hata", f"Dönüştürme hatası:\n\n{err_msg}")
+        messagebox.showinfo("Dönüştürme Başarılı", msg, parent=self.root)
 
     def quick_export_dxf(self, fmt: str):
         dxf_path = self.d2n_dxf_var.get().strip()
         if not dxf_path or not os.path.exists(dxf_path):
-            messagebox.showwarning("Uyarı", "Lütfen önce bir DXF dosyası seçin.")
+            messagebox.showwarning("Uyarı", "Lütfen önce geçerli bir DXF dosyası seçin.", parent=self.root)
             return
         base, _ = os.path.splitext(dxf_path)
         out_path = f"{base}.{fmt}"
-        self.status_d2n_lbl.config(text=f"{fmt.upper()} oluşturuluyor...", fg="#0066cc")
-        self.prog_d2n.pack(fill=tk.X, pady=(0, 4))
-        self.prog_d2n.start(10)
+
+        self._set_d2n_buttons_state(tk.DISABLED)
+        self._update_prog_step(self.prog_d2n, self.status_d2n_lbl, f"{fmt.upper()} işlemi başlatılıyor...", 5)
+
+        def cb(msg, pct):
+            self.root.after(0, lambda: self._update_prog_step(self.prog_d2n, self.status_d2n_lbl, msg, pct))
 
         def worker():
             try:
                 if fmt == "pdf":
-                    export_dxf_to_pdf(dxf_path, out_path, dpi=300)
+                    export_dxf_to_pdf(dxf_path, out_path, dpi=300, progress_callback=cb)
                 else:
-                    export_dxf_to_tif(dxf_path, out_path, dpi=300)
+                    export_dxf_to_tif(dxf_path, out_path, dpi=300, progress_callback=cb)
                 size_kb = os.path.getsize(out_path) / 1024.0
-                self.root.after(0, lambda: self._on_quick_success(out_path, fmt, size_kb, self.status_d2n_lbl, self.prog_d2n, self.btn_open_folder_d2n))
+                self.root.after(0, lambda: self._on_d2n_quick_success(out_path, fmt, size_kb))
             except Exception as ex:
-                self.root.after(0, lambda: messagebox.showerror("Hata", f"{fmt.upper()} oluşturma hatası:\n{ex}"))
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, f"DXF ➔ {fmt.upper()} Dışa Aktarma", self.status_d2n_lbl, self.prog_d2n, self._set_d2n_buttons_state))
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _on_d2n_quick_success(self, out_path: str, fmt: str, size_kb: float):
+        self.prog_d2n["value"] = 100
+        self._set_d2n_buttons_state(tk.NORMAL)
+        self.btn_open_folder_d2n.config(state=tk.NORMAL)
+        self.status_d2n_lbl.config(text=f"✓ {fmt.upper()} başarıyla oluşturuldu! ({size_kb:.1f} KB)", fg=self.success_color)
+        messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası oluşturuldu:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB", parent=self.root)
 
     # ------------------ TAB 2: NCZ -> DXF ------------------
     def _build_n2d_tab(self):
@@ -509,7 +536,7 @@ class DxfNczConverterApp:
         self.btn_convert_n2d.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
 
         # Quick Export Buttons for NCZ
-        tk.Button(
+        self.btn_n2d_pdf = tk.Button(
             btn_box2,
             text="📄 PDF Yap",
             command=lambda: self.quick_export_ncz("pdf"),
@@ -520,9 +547,10 @@ class DxfNczConverterApp:
             cursor="hand2",
             padx=10,
             pady=6,
-        ).pack(side=tk.LEFT, padx=(0, 4))
+        )
+        self.btn_n2d_pdf.pack(side=tk.LEFT, padx=(0, 4))
 
-        tk.Button(
+        self.btn_n2d_tif = tk.Button(
             btn_box2,
             text="🖼️ TIF Yap",
             command=lambda: self.quick_export_ncz("tif"),
@@ -533,15 +561,25 @@ class DxfNczConverterApp:
             cursor="hand2",
             padx=10,
             pady=6,
-        ).pack(side=tk.LEFT)
+        )
+        self.btn_n2d_tif.pack(side=tk.LEFT)
 
-        # Status & Progress
-        self.status_n2d_lbl = tk.Label(self.tab_n2d, text="NCZ dosyanızı seçin veya sürükleyin.", font=("Segoe UI", 8, "italic"), fg="#666666", bg=self.bg_color)
-        self.status_n2d_lbl.pack(fill=tk.X, pady=(0, 2))
-        self.prog_n2d = ttk.Progressbar(self.tab_n2d, mode="indeterminate")
+        # Status & Progress Frame
+        prog_frame_2 = tk.Frame(self.tab_n2d, bg=self.bg_color)
+        prog_frame_2.pack(fill=tk.X, pady=(6, 2))
+
+        self.status_n2d_lbl = tk.Label(prog_frame_2, text="NCZ dosyanızı seçin veya sürükleyin.", font=("Segoe UI", 9), fg="#666666", bg=self.bg_color)
+        self.status_n2d_lbl.pack(anchor="w", pady=(0, 2))
+        self.prog_n2d = ttk.Progressbar(prog_frame_2, mode="determinate", maximum=100)
+        self.prog_n2d.pack(fill=tk.X, pady=(0, 4))
 
         self.btn_open_folder_n2d = tk.Button(self.tab_n2d, text="📁 Çıktı Klasörünü Aç", command=lambda: self.open_folder(self.n2d_dxf_var.get()), font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, state=tk.DISABLED)
         self.btn_open_folder_n2d.pack(anchor="e")
+
+    def _set_n2d_buttons_state(self, state):
+        self.btn_convert_n2d.config(state=state)
+        self.btn_n2d_pdf.config(state=state)
+        self.btn_n2d_tif.config(state=state)
 
     def _set_n2d_drop_active(self, filename: str):
         size_kb = os.path.getsize(filename) / 1024.0 if os.path.exists(filename) else 0
@@ -561,6 +599,7 @@ class DxfNczConverterApp:
         base, _ = os.path.splitext(filename)
         self.n2d_dxf_var.set(base + ".dxf")
         self.exp_input_var.set(filename)
+        self.prog_n2d["value"] = 0
         self.status_n2d_lbl.config(text=f"Seçilen dosya: {os.path.basename(filename)} - Hazır.", fg="#0066cc")
 
     def browse_n2d_dxf(self):
@@ -574,73 +613,71 @@ class DxfNczConverterApp:
         dxf_version = self.n2d_version_var.get().strip() or "R2010"
 
         if not ncz_path or not os.path.exists(ncz_path):
-            messagebox.showwarning("Uyarı", "Lütfen geçerli bir NCZ dosyası seçin veya sürükleyin.")
+            messagebox.showwarning("Uyarı", "Lütfen geçerli bir NCZ dosyası seçin veya sürükleyin.", parent=self.root)
             return
         if not dxf_path:
-            messagebox.showwarning("Uyarı", "Lütfen bir çıktı DXF dosyası belirleyin.")
+            messagebox.showwarning("Uyarı", "Lütfen bir çıktı DXF dosyası belirleyin.", parent=self.root)
             return
 
-        self.btn_convert_n2d.config(state=tk.DISABLED)
-        self.prog_n2d.pack(fill=tk.X, pady=(0, 4))
-        self.prog_n2d.start(10)
-        self.status_n2d_lbl.config(text="DXF'e dönüştürülüyor...", fg="#0066cc")
+        self._set_n2d_buttons_state(tk.DISABLED)
+        self._update_prog_step(self.prog_n2d, self.status_n2d_lbl, "DXF'e dönüştürme başlatılıyor...", 5)
 
-        threading.Thread(target=self._worker_n2d, args=(ncz_path, dxf_path, dxf_version), daemon=True).start()
+        def cb(msg, pct):
+            self.root.after(0, lambda: self._update_prog_step(self.prog_n2d, self.status_n2d_lbl, msg, pct))
 
-    def _worker_n2d(self, ncz_path, dxf_path, dxf_version):
-        try:
-            cnt = convert_ncz_to_dxf(ncz_path=ncz_path, dxf_path=dxf_path, dxf_version=dxf_version)
-            size_kb = os.path.getsize(dxf_path) / 1024.0
-            self.root.after(0, self._on_n2d_success, dxf_path, cnt, size_kb)
-        except Exception as ex:
-            self.root.after(0, self._on_n2d_error, str(ex))
+        def worker():
+            try:
+                cnt = convert_ncz_to_dxf(ncz_path=ncz_path, dxf_path=dxf_path, dxf_version=dxf_version, progress_callback=cb)
+                size_kb = os.path.getsize(dxf_path) / 1024.0
+                self.root.after(0, lambda: self._on_n2d_success(dxf_path, cnt, size_kb))
+            except Exception as ex:
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, "NCZ ➔ DXF Dönüştürme", self.status_n2d_lbl, self.prog_n2d, self._set_n2d_buttons_state))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def _on_n2d_success(self, dxf_path: str, count: int, size_kb: float):
-        self.prog_n2d.stop()
-        self.prog_d2n.pack_forget()
-        self.btn_convert_n2d.config(state=tk.NORMAL)
+        self.prog_n2d["value"] = 100
+        self._set_n2d_buttons_state(tk.NORMAL)
         self.btn_open_folder_n2d.config(state=tk.NORMAL)
         msg = f"DXF dosyası başarıyla oluşturuldu!\n\nDosya: {os.path.basename(dxf_path)}\nToplam Obje: {count:,} adet\nBoyut: {size_kb:.1f} KB"
         self.status_n2d_lbl.config(text=f"✓ Dönüştürme başarılı! ({count} obje, {size_kb:.1f} KB)", fg=self.success_color)
-        messagebox.showinfo("Dönüştürme Başarılı", msg)
-
-    def _on_n2d_error(self, err_msg: str):
-        self.prog_n2d.stop()
-        self.prog_n2d.pack_forget()
-        self.btn_convert_n2d.config(state=tk.NORMAL)
-        self.status_n2d_lbl.config(text="Hata oluştu!", fg="#cc0000")
-        messagebox.showerror("Hata", f"Dönüştürme hatası:\n\n{err_msg}")
+        messagebox.showinfo("Dönüştürme Başarılı", msg, parent=self.root)
 
     def quick_export_ncz(self, fmt: str):
         ncz_path = self.n2d_ncz_var.get().strip()
         if not ncz_path or not os.path.exists(ncz_path):
-            messagebox.showwarning("Uyarı", "Lütfen önce bir NCZ dosyası seçin.")
+            messagebox.showwarning("Uyarı", "Lütfen önce geçerli bir NCZ dosyası seçin.", parent=self.root)
             return
         base, _ = os.path.splitext(ncz_path)
         out_path = f"{base}.{fmt}"
-        self.status_n2d_lbl.config(text=f"{fmt.upper()} oluşturuluyor...", fg="#0066cc")
-        self.prog_n2d.pack(fill=tk.X, pady=(0, 4))
-        self.prog_n2d.start(10)
+
+        self._set_n2d_buttons_state(tk.DISABLED)
+        self._update_prog_step(self.prog_n2d, self.status_n2d_lbl, f"{fmt.upper()} işlemi başlatılıyor...", 5)
+
+        def cb(msg, pct):
+            self.root.after(0, lambda: self._update_prog_step(self.prog_n2d, self.status_n2d_lbl, msg, pct))
 
         def worker():
             try:
                 if fmt == "pdf":
-                    export_ncz_to_pdf(ncz_path, out_path, dpi=300)
+                    export_ncz_to_pdf(ncz_path, out_path, dpi=300, progress_callback=cb)
                 else:
-                    export_ncz_to_tif(ncz_path, out_path, dpi=300)
+                    export_ncz_to_tif(ncz_path, out_path, dpi=300, progress_callback=cb)
                 size_kb = os.path.getsize(out_path) / 1024.0
-                self.root.after(0, lambda: self._on_quick_success(out_path, fmt, size_kb, self.status_n2d_lbl, self.prog_n2d, self.btn_open_folder_n2d))
+                self.root.after(0, lambda: self._on_n2d_quick_success(out_path, fmt, size_kb))
             except Exception as ex:
-                self.root.after(0, lambda: messagebox.showerror("Hata", f"{fmt.upper()} oluşturma hatası:\n{ex}"))
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, f"NCZ ➔ {fmt.upper()} Dışa Aktarma", self.status_n2d_lbl, self.prog_n2d, self._set_n2d_buttons_state))
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_quick_success(self, out_path: str, fmt: str, size_kb: float, lbl: tk.Label, prog: ttk.Progressbar, btn_open: tk.Button):
-        prog.stop()
-        prog.pack_forget()
-        btn_open.config(state=tk.NORMAL)
-        lbl.config(text=f"✓ {fmt.upper()} başarıyla oluşturuldu! ({size_kb:.1f} KB)", fg=self.success_color)
-        messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası oluşturuldu:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB")
+    def _on_n2d_quick_success(self, out_path: str, fmt: str, size_kb: float):
+        self.prog_n2d["value"] = 100
+        self._set_n2d_buttons_state(tk.NORMAL)
+        self.btn_open_folder_n2d.config(state=tk.NORMAL)
+        self.status_n2d_lbl.config(text=f"✓ {fmt.upper()} başarıyla oluşturuldu! ({size_kb:.1f} KB)", fg=self.success_color)
+        messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası oluşturuldu:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB", parent=self.root)
 
     # ------------------ TAB 3: DEDICATED PDF & TIF EXPORT ------------------
     def _build_exp_tab(self):
@@ -718,14 +755,21 @@ class DxfNczConverterApp:
         )
         self.btn_export_dedicated.pack(fill=tk.X, pady=(2, 6))
 
-        # Status & Progress
-        self.status_exp_lbl = tk.Label(self.tab_exp, text="Bir NCZ veya DXF dosyası seçip dışa aktarın.", font=("Segoe UI", 8, "italic"), fg="#666666", bg=self.bg_color)
-        self.status_exp_lbl.pack(fill=tk.X, pady=(0, 3))
-        self.prog_exp = ttk.Progressbar(self.tab_exp, mode="indeterminate")
+        # Status & Progress Frame
+        prog_frame_3 = tk.Frame(self.tab_exp, bg=self.bg_color)
+        prog_frame_3.pack(fill=tk.X, pady=(6, 2))
+
+        self.status_exp_lbl = tk.Label(prog_frame_3, text="NCZ veya DXF dosyanızı seçin veya sürükleyin.", font=("Segoe UI", 9), fg="#666666", bg=self.bg_color)
+        self.status_exp_lbl.pack(anchor="w", pady=(0, 2))
+        self.prog_exp = ttk.Progressbar(prog_frame_3, mode="determinate", maximum=100)
+        self.prog_exp.pack(fill=tk.X, pady=(0, 4))
 
         self.last_exp_out = ""
         self.btn_open_folder_exp = tk.Button(self.tab_exp, text="📁 Çıktı Klasörünü Aç", command=lambda: self.open_folder(self.last_exp_out), font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, state=tk.DISABLED)
         self.btn_open_folder_exp.pack(anchor="e")
+
+    def _set_exp_buttons_state(self, state):
+        self.btn_export_dedicated.config(state=state)
 
     def browse_exp_file(self):
         f = filedialog.askopenfilename(
@@ -737,11 +781,13 @@ class DxfNczConverterApp:
             size_kb = os.path.getsize(f) / 1024.0
             self.lbl_exp_drop_text.config(text=f"Yüklendi: {os.path.basename(f)} ({size_kb:.1f} KB)\nDışa aktarmak için butona basın.", fg=self.drop_ready_fg)
             self.drop_exp_box.config(bg=self.drop_ready_bg, highlightbackground="#28a745")
+            self.prog_exp["value"] = 0
+            self.status_exp_lbl.config(text=f"Dosya yüklendi: {os.path.basename(f)}", fg="#0066cc")
 
     def start_dedicated_export(self):
         inp = self.exp_input_var.get().strip()
         if not inp or not os.path.exists(inp):
-            messagebox.showwarning("Uyarı", "Lütfen geçerli bir NCZ veya DXF dosyası seçin.")
+            messagebox.showwarning("Uyarı", "Lütfen geçerli bir NCZ veya DXF dosyası seçin.", parent=self.root)
             return
 
         fmt = self.exp_format_var.get().lower()
@@ -752,47 +798,41 @@ class DxfNczConverterApp:
         out_path = f"{base}.{fmt}"
         self.last_exp_out = out_path
 
-        self.btn_export_dedicated.config(state=tk.DISABLED)
-        self.prog_exp.pack(fill=tk.X, pady=(0, 4))
-        self.prog_exp.start(10)
-        self.status_exp_lbl.config(text=f"{fmt.upper()} dosyası hazırlanıyor...", fg="#0066cc")
+        self._set_exp_buttons_state(tk.DISABLED)
+        self._update_prog_step(self.prog_exp, self.status_exp_lbl, f"{fmt.upper()} işlemi başlatılıyor...", 5)
+
+        def cb(msg, pct):
+            self.root.after(0, lambda: self._update_prog_step(self.prog_exp, self.status_exp_lbl, msg, pct))
 
         def worker():
             try:
                 if ext == ".dxf":
                     if fmt == "pdf":
-                        export_dxf_to_pdf(inp, out_path, dpi=dpi, bg=bg)
+                        export_dxf_to_pdf(inp, out_path, dpi=dpi, bg=bg, progress_callback=cb)
                     else:
-                        export_dxf_to_tif(inp, out_path, dpi=dpi, bg=bg)
+                        export_dxf_to_tif(inp, out_path, dpi=dpi, bg=bg, progress_callback=cb)
                 elif ext == ".ncz":
                     if fmt == "pdf":
-                        export_ncz_to_pdf(inp, out_path, dpi=dpi, bg=bg)
+                        export_ncz_to_pdf(inp, out_path, dpi=dpi, bg=bg, progress_callback=cb)
                     else:
-                        export_ncz_to_tif(inp, out_path, dpi=dpi, bg=bg)
+                        export_ncz_to_tif(inp, out_path, dpi=dpi, bg=bg, progress_callback=cb)
                 else:
-                    raise ValueError(f"Desteklenmeyen uzantı: {ext}")
+                    raise ValueError(f"Desteklenmeyen dosya uzantısı: {ext}")
 
                 size_kb = os.path.getsize(out_path) / 1024.0
                 self.root.after(0, lambda: self._on_dedicated_success(out_path, fmt, size_kb))
             except Exception as ex:
-                self.root.after(0, lambda: self._on_dedicated_error(str(ex)))
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, f"{fmt.upper()} Dışa Aktarma", self.status_exp_lbl, self.prog_exp, self._set_exp_buttons_state))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _on_dedicated_success(self, out_path: str, fmt: str, size_kb: float):
-        self.prog_exp.stop()
-        self.prog_exp.pack_forget()
-        self.btn_export_dedicated.config(state=tk.NORMAL)
+        self.prog_exp["value"] = 100
+        self._set_exp_buttons_state(tk.NORMAL)
         self.btn_open_folder_exp.config(state=tk.NORMAL)
         self.status_exp_lbl.config(text=f"✓ {fmt.upper()} başarıyla oluşturuldu! ({size_kb:.1f} KB)", fg=self.success_color)
-        messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası kaydedildi:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB")
-
-    def _on_dedicated_error(self, err_msg: str):
-        self.prog_exp.stop()
-        self.prog_exp.pack_forget()
-        self.btn_export_dedicated.config(state=tk.NORMAL)
-        self.status_exp_lbl.config(text="Hata oluştu!", fg="#cc0000")
-        messagebox.showerror("Hata", f"Dışa aktarma hatası:\n\n{err_msg}")
+        messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası kaydedildi:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB", parent=self.root)
 
     # ------------------ UTILS ------------------
     def open_folder(self, target_path: str):

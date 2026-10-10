@@ -18,17 +18,29 @@ except ImportError:
 from ncz_parser import parse_ncz
 
 
-def convert_ncz_to_dxf(ncz_path: str, dxf_path: str, dxf_version: str = "R2010") -> int:
+from typing import Optional, Callable
+
+
+def convert_ncz_to_dxf(
+    ncz_path: str,
+    dxf_path: str,
+    dxf_version: str = "R2010",
+    progress_callback: Optional[Callable[[str, int], None]] = None,
+) -> int:
     """
     Convert an NCZ drawing into AutoCAD DXF format.
     
     :param ncz_path: Path to input NCZ file.
     :param dxf_path: Path to output DXF file.
     :param dxf_version: DXF standard version (e.g., 'R2010', 'R2018').
+    :param progress_callback: Optional callback receiving (step_text, percent).
     :return: Number of converted entities.
     """
     if not os.path.exists(ncz_path):
         raise FileNotFoundError(f"Input NCZ file not found: {ncz_path}")
+
+    if progress_callback:
+        progress_callback("NCZ ikili formatı okunuyor...", 20)
 
     res = parse_ncz(ncz_path)
     doc = ezdxf.new(dxf_version)
@@ -38,6 +50,9 @@ def convert_ncz_to_dxf(ncz_path: str, dxf_path: str, dxf_version: str = "R2010")
     for layer_name in res.get("layer_names", []):
         if layer_name and layer_name not in doc.layers:
             doc.layers.add(layer_name)
+
+    if progress_callback:
+        progress_callback("Objeler DXF'e aktarılıyor...", 60)
 
     entity_count = 0
     for e in res.get("entities", []):
@@ -94,7 +109,11 @@ def convert_ncz_to_dxf(ncz_path: str, dxf_path: str, dxf_version: str = "R2010")
             )
             entity_count += 1
 
+    if progress_callback:
+        progress_callback("DXF dosyası kaydediliyor...", 95)
     doc.saveas(dxf_path)
+    if progress_callback:
+        progress_callback(f"Tamamlandı ({entity_count} obje).", 100)
     return entity_count
 
 
