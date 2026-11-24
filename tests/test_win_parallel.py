@@ -1,5 +1,5 @@
 """
-Windows'ta paralel toplu dönüştürmenin hangi koşulda takıldığını bulmak için tanı testleri.
+Windows'ta paralel toplu dönüştürmenin hangi koşulda takıldığını bulmak için regresyon testleri.
 Takılırsa 90 sn sonra tüm iş parçacıklarının yığın izi yazdırılır.
 """
 import faulthandler

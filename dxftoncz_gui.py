@@ -14,6 +14,7 @@ import webbrowser
 from tkinter import ttk, filedialog, messagebox
 
 import faulthandler
+import queue
 import traceback
 from datetime import datetime
 
@@ -169,6 +170,11 @@ class DxfNczConverterApp:
 
         self._find_default_template()
 
+        # Arka plan iş parçacıkları arayüze doğrudan dokunmaz; yapılacak güncellemeleri
+        # bu kuyruğa koyar, ana iş parçacığı _drain_ui ile uygular (Tk iş parçacığı güvenli değildir).
+        self._ui_queue: "queue.Queue" = queue.Queue()
+        self.root.after(50, self._drain_ui)
+
         self.ui: dict[str, dict] = {}  # sayfa başına widget/durum kaydı
         self.pages: dict[str, tk.Frame] = {}
         self.nav: dict[str, dict] = {}
@@ -193,6 +199,25 @@ class DxfNczConverterApp:
             self._handle_input_file(argv_paths[0])
 
         threading.Thread(target=self._check_update_worker, daemon=True).start()
+
+    def _ui(self, fn):
+        """Herhangi bir iş parçacığından çağrılabilir: fn ana iş parçacığında çalıştırılır."""
+        self._ui_queue.put(fn)
+
+    def _drain_ui(self):
+        try:
+            for _ in range(200):
+                fn = self._ui_queue.get_nowait()
+                try:
+                    fn()
+                except Exception:
+                    self.root.report_callback_exception(*sys.exc_info())
+        except queue.Empty:
+            pass
+        try:
+            self.root.after(50, self._drain_ui)
+        except tk.TclError:
+            pass  # pencere kapatıldı
 
     # ================== KURULUM ==================
     def _load_icons(self):
@@ -338,15 +363,15 @@ class DxfNczConverterApp:
         self._progress(page, start_text, 5)
 
         def cb(msg, pct):
-            self.root.after(0, lambda: self._progress(page, msg, pct))
+            self._ui(lambda: self._progress(page, msg, pct))
 
         def worker():
             try:
                 out_path, summary = work(cb)
-                self.root.after(0, lambda: self._task_done(page, out_path, summary))
+                self._ui(lambda: self._task_done(page, out_path, summary))
             except Exception as ex:
                 err = str(ex) or ex.__class__.__name__
-                self.root.after(0, lambda: self._task_failed(page, title, err))
+                self._ui(lambda: self._task_failed(page, title, err))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -879,15 +904,15 @@ class DxfNczConverterApp:
         def cb(i, total, path):
             pct = int(i * 100 / total) if total else 100
             text = f"{min(i + 1, total) if i < total else total}/{total}  ·  {os.path.basename(path)}" if path else "Tamamlanıyor..."
-            self.root.after(0, lambda: self._progress("batch", text, pct))
+            self._ui(lambda: self._progress("batch", text, pct))
 
         def worker():
             try:
                 summary = batch_convert(files, progress_callback=cb, stop_flag=lambda: self._batch_stop, **opts)
-                self.root.after(0, lambda: self._on_batch_done(summary, len(files)))
+                self._ui(lambda: self._on_batch_done(summary, len(files)))
             except Exception as ex:
                 err = str(ex) or ex.__class__.__name__
-                self.root.after(0, lambda: (self._set_batch_running(False), self._task_failed("batch", "Toplu dönüştürme", err)))
+                self._ui(lambda: (self._set_batch_running(False), self._task_failed("batch", "Toplu dönüştürme", err)))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -914,7 +939,7 @@ class DxfNczConverterApp:
     def _check_update_worker(self):
         tag = check_for_update()
         if tag:
-            self.root.after(0, lambda: self.lbl_update.config(text=f"⬆ Yeni sürüm hazır: {tag}\nİndirmek için tıklayın"))
+            self._ui(lambda: self.lbl_update.config(text=f"⬆ Yeni sürüm hazır: {tag}\nİndirmek için tıklayın"))
 
     def open_preview(self, path: str):
         path = (path or "").strip()
@@ -932,10 +957,10 @@ class DxfNczConverterApp:
             try:
                 from cad_export import render_preview_figure
                 fig = render_preview_figure(path)
-                self.root.after(0, lambda: self._show_preview(win, lbl, fig))
+                self._ui(lambda: self._show_preview(win, lbl, fig))
             except Exception as ex:
                 err = str(ex)
-                self.root.after(0, lambda: lbl.winfo_exists() and lbl.config(text=f"Önizleme hatası: {err[:120]}", fg=C["danger"]))
+                self._ui(lambda: lbl.winfo_exists() and lbl.config(text=f"Önizleme hatası: {err[:120]}", fg=C["danger"]))
 
         threading.Thread(target=worker, daemon=True).start()
 
