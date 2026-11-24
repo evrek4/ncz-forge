@@ -13,10 +13,10 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk, filedialog, messagebox
 
-try:
-    import windnd
-except ImportError:
-    windnd = None
+import faulthandler
+import queue
+import traceback
+from datetime import datetime
 
 from batch_convert import collect_files, batch_convert, default_workers
 from cad_export import (
@@ -39,6 +39,58 @@ except Exception:
 
 
 FONT = "Segoe UI"
+
+
+# ================== HATA GÜNLÜĞÜ ==================
+def _log_dir() -> str:
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    path = os.path.join(base, "NCZ Forge")
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        path = os.path.expanduser("~")
+    return path
+
+
+LOG_PATH = os.path.join(_log_dir(), "hata_kaydi.log")
+
+
+def log_error(title: str, details: str):
+    """Hataları kullanıcının bilgisayarında bir günlük dosyasına yazar (exe'de konsol olmadığı için)."""
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] v{__version__} - {title}\n{details}\n")
+    except Exception:
+        pass
+
+
+def install_error_handlers(root: tk.Tk):
+    """Yakalanmayan hataların programı sessizce kapatmasını önler; günlüğe yazar ve kullanıcıya gösterir."""
+    # Yerel (C seviyesinde) çökmelerde bile iz kalsın
+    try:
+        root._fault_log = open(LOG_PATH, "a", encoding="utf-8")
+        faulthandler.enable(file=root._fault_log, all_threads=True)
+    except Exception:
+        pass
+
+    def show(title, exc_type, exc, tb):
+        details = "".join(traceback.format_exception(exc_type, exc, tb))
+        log_error(title, details)
+        try:
+            messagebox.showerror(
+                "Beklenmeyen Hata",
+                f"{exc_type.__name__}: {exc}\n\nProgram çalışmaya devam ediyor.\nAyrıntılar şu dosyaya kaydedildi:\n{LOG_PATH}",
+                parent=root,
+            )
+        except Exception:
+            pass
+
+    root.report_callback_exception = lambda et, ev, tb: show("Arayüz hatası", et, ev, tb)
+    sys.excepthook = lambda et, ev, tb: log_error("Yakalanmayan hata", "".join(traceback.format_exception(et, ev, tb)))
+    threading.excepthook = lambda a: log_error(
+        f"İş parçacığı hatası ({a.thread.name if a.thread else '?'})",
+        "".join(traceback.format_exception(a.exc_type, a.exc_value, a.exc_traceback)),
+    )
 
 # Renk paleti
 C = {
@@ -118,6 +170,11 @@ class DxfNczConverterApp:
 
         self._find_default_template()
 
+        # Arka plan iş parçacıkları arayüze doğrudan dokunmaz; yapılacak güncellemeleri
+        # bu kuyruğa koyar, ana iş parçacığı _drain_ui ile uygular (Tk iş parçacığı güvenli değildir).
+        self._ui_queue: "queue.Queue" = queue.Queue()
+        self.root.after(50, self._drain_ui)
+
         self.ui: dict[str, dict] = {}  # sayfa başına widget/durum kaydı
         self.pages: dict[str, tk.Frame] = {}
         self.nav: dict[str, dict] = {}
@@ -125,11 +182,13 @@ class DxfNczConverterApp:
         self._build_ui()
         self.show_page("d2n")
 
-        if windnd is not None:
+        self._drop_target = None
+        if sys.platform == "win32":
             try:
-                windnd.hook_dropfiles(self.root, func=self.on_files_dropped, force_unicode=True)
-            except Exception as e:
-                print("windnd hook error:", e)
+                from win_dnd import DropTarget
+                self._drop_target = DropTarget(self.root, self.on_files_dropped)
+            except Exception:
+                log_error("Sürükle-bırak başlatılamadı", traceback.format_exc())
 
         # EXE simgesine sürüklenen / komut satırından verilen dosyalar
         argv_paths = [a for a in sys.argv[1:] if os.path.exists(a)]
@@ -140,6 +199,25 @@ class DxfNczConverterApp:
             self._handle_input_file(argv_paths[0])
 
         threading.Thread(target=self._check_update_worker, daemon=True).start()
+
+    def _ui(self, fn):
+        """Herhangi bir iş parçacığından çağrılabilir: fn ana iş parçacığında çalıştırılır."""
+        self._ui_queue.put(fn)
+
+    def _drain_ui(self):
+        try:
+            for _ in range(200):
+                fn = self._ui_queue.get_nowait()
+                try:
+                    fn()
+                except Exception:
+                    self.root.report_callback_exception(*sys.exc_info())
+        except queue.Empty:
+            pass
+        try:
+            self.root.after(50, self._drain_ui)
+        except tk.TclError:
+            pass  # pencere kapatıldı
 
     # ================== KURULUM ==================
     def _load_icons(self):
@@ -285,15 +363,15 @@ class DxfNczConverterApp:
         self._progress(page, start_text, 5)
 
         def cb(msg, pct):
-            self.root.after(0, lambda: self._progress(page, msg, pct))
+            self._ui(lambda: self._progress(page, msg, pct))
 
         def worker():
             try:
                 out_path, summary = work(cb)
-                self.root.after(0, lambda: self._task_done(page, out_path, summary))
+                self._ui(lambda: self._task_done(page, out_path, summary))
             except Exception as ex:
                 err = str(ex) or ex.__class__.__name__
-                self.root.after(0, lambda: self._task_failed(page, title, err))
+                self._ui(lambda: self._task_failed(page, title, err))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -419,7 +497,7 @@ class DxfNczConverterApp:
     def on_files_dropped(self, file_list):
         if not file_list:
             return
-        paths = [p for p in (self._decode_drop_path(r) for r in file_list) if os.path.exists(p)]
+        paths = [p for p in (self._decode_drop_path(r) for r in file_list) if p and os.path.exists(p)]
         if not paths:
             return
         if len(paths) > 1 or os.path.isdir(paths[0]) or self.current_page == "batch":
@@ -826,15 +904,15 @@ class DxfNczConverterApp:
         def cb(i, total, path):
             pct = int(i * 100 / total) if total else 100
             text = f"{min(i + 1, total) if i < total else total}/{total}  ·  {os.path.basename(path)}" if path else "Tamamlanıyor..."
-            self.root.after(0, lambda: self._progress("batch", text, pct))
+            self._ui(lambda: self._progress("batch", text, pct))
 
         def worker():
             try:
                 summary = batch_convert(files, progress_callback=cb, stop_flag=lambda: self._batch_stop, **opts)
-                self.root.after(0, lambda: self._on_batch_done(summary, len(files)))
+                self._ui(lambda: self._on_batch_done(summary, len(files)))
             except Exception as ex:
                 err = str(ex) or ex.__class__.__name__
-                self.root.after(0, lambda: (self._set_batch_running(False), self._task_failed("batch", "Toplu dönüştürme", err)))
+                self._ui(lambda: (self._set_batch_running(False), self._task_failed("batch", "Toplu dönüştürme", err)))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -861,7 +939,7 @@ class DxfNczConverterApp:
     def _check_update_worker(self):
         tag = check_for_update()
         if tag:
-            self.root.after(0, lambda: self.lbl_update.config(text=f"⬆ Yeni sürüm hazır: {tag}\nİndirmek için tıklayın"))
+            self._ui(lambda: self.lbl_update.config(text=f"⬆ Yeni sürüm hazır: {tag}\nİndirmek için tıklayın"))
 
     def open_preview(self, path: str):
         path = (path or "").strip()
@@ -879,10 +957,10 @@ class DxfNczConverterApp:
             try:
                 from cad_export import render_preview_figure
                 fig = render_preview_figure(path)
-                self.root.after(0, lambda: self._show_preview(win, lbl, fig))
+                self._ui(lambda: self._show_preview(win, lbl, fig))
             except Exception as ex:
                 err = str(ex)
-                self.root.after(0, lambda: lbl.winfo_exists() and lbl.config(text=f"Önizleme hatası: {err[:120]}", fg=C["danger"]))
+                self._ui(lambda: lbl.winfo_exists() and lbl.config(text=f"Önizleme hatası: {err[:120]}", fg=C["danger"]))
 
         threading.Thread(target=worker, daemon=True).start()
 
@@ -920,6 +998,7 @@ class DxfNczConverterApp:
 
 def main():
     root = tk.Tk()
+    install_error_handlers(root)
     DxfNczConverterApp(root)
     root.mainloop()
 

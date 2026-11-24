@@ -6,7 +6,7 @@ import re
 import urllib.request
 from typing import Optional, Tuple
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 REPO = "evrek4/ncz-forge"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
 _API_LATEST = f"https://api.github.com/repos/{REPO}/releases/latest"
