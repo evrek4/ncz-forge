@@ -9,6 +9,7 @@ Supports:
   6. dxf2tif:  Export AutoCAD DXF directly to high-resolution TIFF image
   7. info:     Inspect NCZ file structure, version, layers, bounding box, entities
   8. reencode: Re-encode an NCZ file for validation and optimization
+  9. batch:    Convert many NCZ / DXF files (or whole folders) at once
 
 Usage:
   python ncz_tool.py info 103_11.NCZ
@@ -18,6 +19,8 @@ Usage:
   python ncz_tool.py ncz2tif input.NCZ output.tif
   python ncz_tool.py dxf2pdf drawing.dxf output.pdf
   python ncz_tool.py dxf2tif drawing.dxf output.tif
+  python ncz_tool.py batch a.NCZ b.NCZ c.dxf [--to auto|pdf|tif] [--out cikti_klasoru]
+  python ncz_tool.py batch proje_klasoru --recursive
 """
 
 from __future__ import annotations
@@ -136,6 +139,36 @@ def cmd_reencode(args):
     return 0
 
 
+def cmd_batch(args):
+    from batch_convert import collect_files, batch_convert
+
+    files = collect_files(args.inputs, recursive=args.recursive)
+    if not files:
+        print("Hata: Dönüştürülecek .ncz veya .dxf dosyası bulunamadı.")
+        return 1
+    print(f"Toplu dönüştürme: {len(files)} dosya, hedef = {args.to.upper()}")
+
+    def cb(i, total, path):
+        if path:
+            print(f"  [{i + 1}/{total}] {os.path.basename(path)}")
+
+    summary = batch_convert(
+        files,
+        target=args.to,
+        output_dir=args.out,
+        template_path=args.template,
+        swap_xy=args.swap_xy,
+        dxf_version=args.version,
+        dpi=args.dpi,
+        bg=args.bg,
+        progress_callback=cb,
+    )
+    print(f"\nBaşarılı: {len(summary.succeeded)}  Hatalı: {len(summary.failed)}")
+    for r in summary.failed:
+        print(f"  HATA {os.path.basename(r.input_path)}: {r.error}")
+    return 0 if not summary.failed else 2
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="NCZ & DXF Dönüştürücü ve PDF/TIF Dışa Aktarım Aracı"
@@ -192,6 +225,19 @@ def main():
     p_re.add_argument("input_ncz", help="Girdi NCZ dosyası")
     p_re.add_argument("output_ncz", help="Çıktı NCZ dosyası")
 
+    # batch
+    p_b = subparsers.add_parser("batch", help="Birden fazla NCZ/DXF dosyasını (veya klasörü) toplu dönüştür")
+    p_b.add_argument("inputs", nargs="+", help="Girdi dosyaları ve/veya klasörler")
+    p_b.add_argument("--to", default="auto", choices=["auto", "pdf", "tif"],
+                     help="auto: NCZ->DXF ve DXF->NCZ; pdf/tif: dışa aktarım (varsayılan: auto)")
+    p_b.add_argument("--out", "-o", default=None, help="Çıktı klasörü (varsayılan: her dosyanın kendi klasörü)")
+    p_b.add_argument("--recursive", "-r", action="store_true", help="Klasörlerde alt klasörleri de tara")
+    p_b.add_argument("--template", "-t", default=None, help="DXF->NCZ için şablon NCZ dosyası")
+    p_b.add_argument("--swap-xy", action="store_true", help="DXF->NCZ için X ve Y'yi yer değiştir")
+    p_b.add_argument("--version", default="R2010", help="NCZ->DXF için DXF sürümü (varsayılan: R2010)")
+    p_b.add_argument("--dpi", type=int, default=300, help="PDF/TIF çözünürlüğü (varsayılan: 300)")
+    p_b.add_argument("--bg", default="white", choices=["white", "black"], help="PDF/TIF arka plan rengi")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -213,6 +259,8 @@ def main():
         sys.exit(cmd_dxf2tif(args))
     elif args.command == "reencode":
         sys.exit(cmd_reencode(args))
+    elif args.command == "batch":
+        sys.exit(cmd_batch(args))
 
 
 if __name__ == "__main__":

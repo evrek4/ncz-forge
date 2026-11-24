@@ -28,7 +28,8 @@ Klasördeki **`NCZ Forge.exe`** (veya `dxftoncz.exe`) dosyasına çift tıklayar
 * **Sekme 1 (DXF ➔ NCZ):** AutoCAD DXF çiziminizi Netcad NCZ formatına dönüştürür. Ayrıca seçilen DXF'i tek tıkla doğrudan PDF veya TIF yapabilir.
 * **Sekme 2 (NCZ ➔ DXF):** Netcad NCZ dosyanızı AutoCAD DXF formatına dönüştürür. Ayrıca seçilen NCZ'yi tek tıkla doğrudan PDF veya TIF yapabilir.
 * **Sekme 3 (PDF & TIF Dışa Aktar):** Hem NCZ hem DXF dosyalarını yüksek çözünürlüklü vektör **PDF** veya sıkıştırılmış raster **TIF (TIFF)** formatlarına dönüştürür. Çözünürlük (150, 300, 600 DPI) ve arka plan rengi (Beyaz/Siyah) seçilebilir.
-* **Sürükle & Bırak:** Dosyaları doğrudan pencereye veya dosya seçiciye sürükleyip bırakabilirsiniz.
+* **Sekme 4 (Çoklu Dönüştür):** Birden fazla NCZ ve DXF dosyasını (karışık olabilir) veya bütün bir klasörü tek seferde dönüştürür. Hedef: *NCZ ⮂ DXF (otomatik yön)*, *PDF* veya *TIF*. Çıktı klasörü seçilebilir; aynı isimli dosyalar birbirinin ve kaynak dosyaların üzerine yazılmaz (`_2`, `_3` eki alır). Hatalı bir dosya diğerlerini durdurmaz, işlem sonunda rapor gösterilir.
+* **Sürükle & Bırak:** Dosyaları doğrudan pencereye veya dosya seçiciye sürükleyip bırakabilirsiniz. Birden fazla dosya veya klasör bırakılırsa otomatik olarak *Çoklu Dönüştür* sekmesine eklenir.
 
 ---
 
@@ -69,7 +70,21 @@ python ncz_tool.py dxf2pdf 103_11.dxf 103_11.pdf
 python ncz_tool.py dxf2tif 103_11.dxf 103_11.tif --dpi 300
 ```
 
-### 5. NCZ Dosyasını Yeniden Encode Etme (Re-encode)
+### 5. Çoklu (Toplu) Dönüştürme
+```bash
+# Birden fazla dosya: NCZ'ler DXF'e, DXF'ler NCZ'ye (uzantıya göre otomatik)
+python ncz_tool.py batch 103_11.NCZ pafta2.NCZ cizim.dxf --out cikti
+
+# Bir klasördeki tüm NCZ / DXF dosyaları (alt klasörler dahil)
+python ncz_tool.py batch proje_klasoru --recursive
+
+# Hepsini PDF veya TIF yap
+python ncz_tool.py batch proje_klasoru --to pdf
+python ncz_tool.py batch proje_klasoru --to tif --dpi 600
+```
+Ek seçenekler: `--template` (DXF➔NCZ şablonu), `--swap-xy`, `--version` (DXF sürümü), `--bg white|black`.
+
+### 6. NCZ Dosyasını Yeniden Encode Etme (Re-encode)
 ```bash
 python ncz_tool.py reencode 103_11.NCZ 103_11_reencoded.NCZ
 ```

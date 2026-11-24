@@ -19,6 +19,7 @@ except ImportError:
 
 from dxf_to_ncz import convert_dxf_to_ncz
 from ncz_to_dxf import convert_ncz_to_dxf
+from batch_convert import collect_files, batch_convert
 from cad_export import (
     export_dxf_to_pdf,
     export_dxf_to_tif,
@@ -39,7 +40,7 @@ class DxfNczConverterApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("NCZ Forge - Netcad NCZ & CAD Çevirici ve Dışa Aktarıcı")
-        self.root.geometry("720x660")
+        self.root.geometry("760x700")
         self.root.minsize(660, 600)
 
         # Base dir for bundled assets
@@ -99,6 +100,13 @@ class DxfNczConverterApp:
         self.exp_dpi_var = tk.IntVar(value=300)
         self.exp_bg_var = tk.StringVar(value="white")
 
+        # Tab 4 Variables (Batch / Çoklu)
+        self.batch_files: list[str] = []
+        self.batch_target_var = tk.StringVar(value="auto")
+        self.batch_outdir_var = tk.StringVar()
+        self.batch_recursive_var = tk.BooleanVar(value=False)
+        self._batch_stop = False
+
         # Set default template
         cand_template = os.path.join(self.base_dir, "103_11.NCZ")
         if not os.path.exists(cand_template):
@@ -116,13 +124,15 @@ class DxfNczConverterApp:
                 print("windnd hook error:", e)
 
         # Handle Drag-and-Drop onto EXE icon or command line args
-        if len(sys.argv) > 1 and os.path.exists(sys.argv[1]):
-            self._handle_input_file(sys.argv[1])
+        argv_paths = [a for a in sys.argv[1:] if os.path.exists(a)]
+        if len(argv_paths) > 1 or (argv_paths and os.path.isdir(argv_paths[0])):
+            self.notebook.select(3)
+            self.batch_add_paths(argv_paths)
+        elif argv_paths:
+            self._handle_input_file(argv_paths[0])
 
-    def on_files_dropped(self, file_list):
-        if not file_list:
-            return
-        raw_path = file_list[0]
+    @staticmethod
+    def _decode_drop_path(raw_path) -> str:
         if isinstance(raw_path, bytes):
             try:
                 file_path = raw_path.decode("utf-8")
@@ -130,10 +140,20 @@ class DxfNczConverterApp:
                 file_path = raw_path.decode("windows-1254", errors="ignore")
         else:
             file_path = str(raw_path)
+        return os.path.abspath(file_path.strip(' "'))
 
-        file_path = os.path.abspath(file_path.strip(' "'))
-        if os.path.exists(file_path):
-            self._handle_input_file(file_path)
+    def on_files_dropped(self, file_list):
+        if not file_list:
+            return
+        paths = [p for p in (self._decode_drop_path(r) for r in file_list) if os.path.exists(p)]
+        if not paths:
+            return
+        # Birden fazla dosya, klasör veya Çoklu sekmesi açıkken -> toplu listeye ekle
+        if len(paths) > 1 or os.path.isdir(paths[0]) or self.notebook.index("current") == 3:
+            self.notebook.select(3)
+            self.batch_add_paths(paths)
+        else:
+            self._handle_input_file(paths[0])
 
     def _handle_input_file(self, file_path: str):
         ext = os.path.splitext(file_path)[1].lower()
@@ -214,6 +234,11 @@ class DxfNczConverterApp:
         self.tab_exp = tk.Frame(self.notebook, bg=self.bg_color, padx=12, pady=10)
         self.notebook.add(self.tab_exp, text=" 📄  PDF & TIF Dışa Aktar ")
         self._build_exp_tab()
+
+        # Tab 4: Batch (Çoklu NCZ / DXF)
+        self.tab_batch = tk.Frame(self.notebook, bg=self.bg_color, padx=12, pady=10)
+        self.notebook.add(self.tab_batch, text=" 📚  Çoklu Dönüştür ")
+        self._build_batch_tab()
 
     # ------------------ TAB 1: DXF -> NCZ ------------------
     def _build_d2n_tab(self):
@@ -833,6 +858,189 @@ class DxfNczConverterApp:
         self.btn_open_folder_exp.config(state=tk.NORMAL)
         self.status_exp_lbl.config(text=f"✓ {fmt.upper()} başarıyla oluşturuldu! ({size_kb:.1f} KB)", fg=self.success_color)
         messagebox.showinfo("Dışa Aktarım Başarılı", f"{fmt.upper()} dosyası kaydedildi:\n\n{os.path.basename(out_path)}\nBoyut: {size_kb:.1f} KB", parent=self.root)
+
+    # ------------------ TAB 4: BATCH (ÇOKLU NCZ / DXF) ------------------
+    def _build_batch_tab(self):
+        # File list
+        card_list = tk.LabelFrame(self.tab_batch, text=" Dosya Listesi (NCZ ve DXF karışık olabilir — sürükleyip bırakabilirsiniz) ", font=("Segoe UI", 8, "bold"), bg=self.card_bg, fg="#444444", padx=8, pady=5)
+        card_list.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
+
+        list_frame = tk.Frame(card_list, bg=self.card_bg)
+        list_frame.pack(fill=tk.BOTH, expand=True)
+        sb = ttk.Scrollbar(list_frame, orient=tk.VERTICAL)
+        self.batch_listbox = tk.Listbox(list_frame, selectmode=tk.EXTENDED, font=("Consolas", 9), height=8, yscrollcommand=sb.set, activestyle="none")
+        sb.config(command=self.batch_listbox.yview)
+        sb.pack(side=tk.RIGHT, fill=tk.Y)
+        self.batch_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.batch_listbox.bind("<Delete>", lambda e: self.batch_remove_selected())
+
+        btns = tk.Frame(card_list, bg=self.card_bg)
+        btns.pack(fill=tk.X, pady=(5, 0))
+        for text, cmd in (
+            ("➕ Dosya Ekle...", self.batch_browse_files),
+            ("📂 Klasör Ekle...", self.batch_browse_folder),
+            ("➖ Seçileni Çıkar", self.batch_remove_selected),
+            ("🗑️ Listeyi Temizle", self.batch_clear),
+        ):
+            tk.Button(btns, text=text, command=cmd, font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, padx=6).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Checkbutton(btns, text="Alt klasörler dahil", variable=self.batch_recursive_var, font=("Segoe UI", 8), bg=self.card_bg).pack(side=tk.LEFT, padx=(6, 0))
+        self.lbl_batch_count = tk.Label(btns, text="0 dosya", font=("Segoe UI", 8, "bold"), bg=self.card_bg, fg="#0066cc")
+        self.lbl_batch_count.pack(side=tk.RIGHT)
+
+        # Target + output
+        card_opt = tk.LabelFrame(self.tab_batch, text=" Hedef ve Çıktı ", font=("Segoe UI", 8, "bold"), bg=self.card_bg, fg="#444444", padx=10, pady=5)
+        card_opt.pack(fill=tk.X, pady=(0, 5))
+        f_t = tk.Frame(card_opt, bg=self.card_bg)
+        f_t.pack(fill=tk.X, pady=(0, 3))
+        tk.Label(f_t, text="Hedef:", font=("Segoe UI", 8, "bold"), bg=self.card_bg).pack(side=tk.LEFT, padx=(0, 8))
+        for text, val in (("NCZ ⮂ DXF (otomatik)", "auto"), ("📄 PDF", "pdf"), ("🖼️ TIF", "tif")):
+            tk.Radiobutton(f_t, text=text, variable=self.batch_target_var, value=val, font=("Segoe UI", 8), bg=self.card_bg).pack(side=tk.LEFT, padx=(0, 10))
+
+        f_o = tk.Frame(card_opt, bg=self.card_bg)
+        f_o.pack(fill=tk.X)
+        tk.Label(f_o, text="Çıktı Klasörü:", font=("Segoe UI", 8), bg=self.card_bg).pack(side=tk.LEFT, padx=(0, 8))
+        ttk.Entry(f_o, textvariable=self.batch_outdir_var, font=("Segoe UI", 9)).pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+        tk.Button(f_o, text="Seç...", command=self.batch_browse_outdir, font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, padx=8).pack(side=tk.RIGHT)
+        tk.Label(card_opt, text="Boş bırakılırsa çıktılar her dosyanın kendi klasörüne kaydedilir. Şablon / DXF sürümü / DPI ayarları diğer sekmelerden alınır.", font=("Segoe UI", 7), fg="#777777", bg=self.card_bg).pack(anchor="w", pady=(3, 0))
+
+        # Action buttons
+        act = tk.Frame(self.tab_batch, bg=self.bg_color)
+        act.pack(fill=tk.X, pady=(2, 4))
+        self.btn_batch_start = tk.Button(act, text="🚀 Tümünü Dönüştür", command=self.start_batch, font=("Segoe UI", 10, "bold"), bg=self.primary_color, fg="#ffffff", activebackground="#0052a3", activeforeground="#ffffff", relief=tk.RAISED, cursor="hand2", pady=6)
+        self.btn_batch_start.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 4))
+        self.btn_batch_stop = tk.Button(act, text="⏹ Durdur", command=self.stop_batch, font=("Segoe UI", 9, "bold"), bg="#6c757d", fg="#ffffff", relief=tk.RAISED, padx=10, pady=6, state=tk.DISABLED)
+        self.btn_batch_stop.pack(side=tk.LEFT)
+
+        prog = tk.Frame(self.tab_batch, bg=self.bg_color)
+        prog.pack(fill=tk.X, pady=(4, 2))
+        self.status_batch_lbl = tk.Label(prog, text="Birden fazla NCZ / DXF dosyasını veya klasörü ekleyin.", font=("Segoe UI", 9), fg="#666666", bg=self.bg_color)
+        self.status_batch_lbl.pack(anchor="w", pady=(0, 2))
+        self.prog_batch = ttk.Progressbar(prog, mode="determinate", maximum=100)
+        self.prog_batch.pack(fill=tk.X, pady=(0, 4))
+
+        self.last_batch_out = ""
+        self.btn_open_folder_batch = tk.Button(self.tab_batch, text="📁 Çıktı Klasörünü Aç", command=lambda: self.open_folder(self.last_batch_out), font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, state=tk.DISABLED)
+        self.btn_open_folder_batch.pack(anchor="e")
+
+    def _batch_refresh_list(self):
+        self.batch_listbox.delete(0, tk.END)
+        for f in self.batch_files:
+            tag = "NCZ" if f.lower().endswith(".ncz") else "DXF"
+            self.batch_listbox.insert(tk.END, f"[{tag}] {f}")
+        n_ncz = sum(1 for f in self.batch_files if f.lower().endswith(".ncz"))
+        n_dxf = len(self.batch_files) - n_ncz
+        self.lbl_batch_count.config(text=f"{len(self.batch_files)} dosya ({n_ncz} NCZ, {n_dxf} DXF)")
+
+    def batch_add_paths(self, paths):
+        before = len(self.batch_files)
+        known = {os.path.normcase(f) for f in self.batch_files}
+        for f in collect_files(paths, recursive=self.batch_recursive_var.get()):
+            if os.path.normcase(f) not in known:
+                known.add(os.path.normcase(f))
+                self.batch_files.append(f)
+        self._batch_refresh_list()
+        added = len(self.batch_files) - before
+        self.prog_batch["value"] = 0
+        if added:
+            self.status_batch_lbl.config(text=f"{added} dosya eklendi. Hazır.", fg="#0066cc")
+        else:
+            self.status_batch_lbl.config(text="Eklenecek yeni .ncz / .dxf dosyası bulunamadı.", fg="#cc6600")
+
+    def batch_browse_files(self):
+        files = filedialog.askopenfilenames(
+            title="Dönüştürülecek NCZ / DXF Dosyalarını Seçin (çoklu seçim)",
+            filetypes=[("Çizim Dosyaları (*.ncz;*.dxf)", "*.ncz;*.NCZ;*.dxf;*.DXF"), ("Netcad NCZ", "*.ncz;*.NCZ"), ("AutoCAD DXF", "*.dxf;*.DXF"), ("Tüm Dosyalar (*.*)", "*.*")],
+        )
+        if files:
+            self.batch_add_paths(list(files))
+
+    def batch_browse_folder(self):
+        d = filedialog.askdirectory(title="NCZ / DXF dosyalarının bulunduğu klasörü seçin")
+        if d:
+            self.batch_add_paths([d])
+
+    def batch_browse_outdir(self):
+        d = filedialog.askdirectory(title="Çıktı klasörünü seçin")
+        if d:
+            self.batch_outdir_var.set(d)
+
+    def batch_remove_selected(self):
+        for idx in reversed(self.batch_listbox.curselection()):
+            del self.batch_files[idx]
+        self._batch_refresh_list()
+
+    def batch_clear(self):
+        self.batch_files = []
+        self._batch_refresh_list()
+        self.prog_batch["value"] = 0
+        self.status_batch_lbl.config(text="Liste temizlendi.", fg="#666666")
+
+    def _set_batch_running(self, running: bool):
+        self.btn_batch_start.config(state=tk.DISABLED if running else tk.NORMAL)
+        self.btn_batch_stop.config(state=tk.NORMAL if running else tk.DISABLED)
+
+    def stop_batch(self):
+        self._batch_stop = True
+        self.status_batch_lbl.config(text="Durduruluyor... (mevcut dosya bitince)", fg="#cc6600")
+
+    def start_batch(self):
+        files = list(self.batch_files)
+        if not files:
+            messagebox.showwarning("Uyarı", "Lütfen önce listeye NCZ / DXF dosyası ekleyin.", parent=self.root)
+            return
+        target = self.batch_target_var.get()
+        out_dir = self.batch_outdir_var.get().strip() or None
+        template = self.d2n_template_var.get().strip() or None
+        if template and not os.path.exists(template):
+            template = None
+        opts = dict(
+            target=target,
+            output_dir=out_dir,
+            template_path=template,
+            swap_xy=self.d2n_swap_xy_var.get(),
+            dxf_version=self.n2d_version_var.get().strip() or "R2010",
+            dpi=int(self.exp_dpi_var.get()),
+            bg=self.exp_bg_var.get(),
+        )
+        self._batch_stop = False
+        self._set_batch_running(True)
+        self.prog_batch["value"] = 0
+
+        def cb(i, total, path):
+            pct = int(i * 100 / total) if total else 100
+            text = f"[{i + 1}/{total}] {os.path.basename(path)} işleniyor..." if path else "Tamamlandı."
+            self.root.after(0, lambda: (self.prog_batch.configure(value=pct), self.status_batch_lbl.config(text=text, fg="#0066cc")))
+
+        def worker():
+            try:
+                summary = batch_convert(files, progress_callback=cb, stop_flag=lambda: self._batch_stop, **opts)
+                self.root.after(0, lambda: self._on_batch_done(summary, len(files)))
+            except Exception as ex:
+                err_msg = str(ex)
+                self.root.after(0, lambda: self._on_task_error(err_msg, "Toplu Dönüştürme", self.status_batch_lbl, self.prog_batch, lambda st: self._set_batch_running(False)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_batch_done(self, summary, total: int):
+        self._set_batch_running(False)
+        ok, bad = summary.succeeded, summary.failed
+        skipped = total - len(summary.results)
+        self.prog_batch["value"] = 100
+        if ok:
+            self.last_batch_out = ok[-1].output_path
+            self.btn_open_folder_batch.config(state=tk.NORMAL)
+        color = self.success_color if not bad else "#cc6600"
+        self.status_batch_lbl.config(text=f"✓ Başarılı: {len(ok)}   ✗ Hatalı: {len(bad)}" + (f"   ⏭ Atlanan: {skipped}" if skipped else ""), fg=color)
+        msg = f"Toplu dönüştürme bitti.\n\nBaşarılı: {len(ok)}\nHatalı: {len(bad)}"
+        if skipped:
+            msg += f"\nAtlanan (durduruldu): {skipped}"
+        if bad:
+            msg += "\n\nHatalı dosyalar:\n" + "\n".join(f"• {os.path.basename(r.input_path)}: {r.error[:80]}" for r in bad[:10])
+            if len(bad) > 10:
+                msg += f"\n... ve {len(bad) - 10} dosya daha"
+            messagebox.showwarning("Toplu Dönüştürme", msg, parent=self.root)
+        else:
+            messagebox.showinfo("Toplu Dönüştürme", msg, parent=self.root)
 
     # ------------------ UTILS ------------------
     def open_folder(self, target_path: str):
