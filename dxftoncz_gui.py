@@ -13,10 +13,9 @@ import tkinter as tk
 import webbrowser
 from tkinter import ttk, filedialog, messagebox
 
-try:
-    import windnd
-except ImportError:
-    windnd = None
+import faulthandler
+import traceback
+from datetime import datetime
 
 from batch_convert import collect_files, batch_convert, default_workers
 from cad_export import (
@@ -39,6 +38,58 @@ except Exception:
 
 
 FONT = "Segoe UI"
+
+
+# ================== HATA GÜNLÜĞÜ ==================
+def _log_dir() -> str:
+    base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+    path = os.path.join(base, "NCZ Forge")
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        path = os.path.expanduser("~")
+    return path
+
+
+LOG_PATH = os.path.join(_log_dir(), "hata_kaydi.log")
+
+
+def log_error(title: str, details: str):
+    """Hataları kullanıcının bilgisayarında bir günlük dosyasına yazar (exe'de konsol olmadığı için)."""
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as fh:
+            fh.write(f"\n[{datetime.now():%Y-%m-%d %H:%M:%S}] v{__version__} - {title}\n{details}\n")
+    except Exception:
+        pass
+
+
+def install_error_handlers(root: tk.Tk):
+    """Yakalanmayan hataların programı sessizce kapatmasını önler; günlüğe yazar ve kullanıcıya gösterir."""
+    # Yerel (C seviyesinde) çökmelerde bile iz kalsın
+    try:
+        root._fault_log = open(LOG_PATH, "a", encoding="utf-8")
+        faulthandler.enable(file=root._fault_log, all_threads=True)
+    except Exception:
+        pass
+
+    def show(title, exc_type, exc, tb):
+        details = "".join(traceback.format_exception(exc_type, exc, tb))
+        log_error(title, details)
+        try:
+            messagebox.showerror(
+                "Beklenmeyen Hata",
+                f"{exc_type.__name__}: {exc}\n\nProgram çalışmaya devam ediyor.\nAyrıntılar şu dosyaya kaydedildi:\n{LOG_PATH}",
+                parent=root,
+            )
+        except Exception:
+            pass
+
+    root.report_callback_exception = lambda et, ev, tb: show("Arayüz hatası", et, ev, tb)
+    sys.excepthook = lambda et, ev, tb: log_error("Yakalanmayan hata", "".join(traceback.format_exception(et, ev, tb)))
+    threading.excepthook = lambda a: log_error(
+        f"İş parçacığı hatası ({a.thread.name if a.thread else '?'})",
+        "".join(traceback.format_exception(a.exc_type, a.exc_value, a.exc_traceback)),
+    )
 
 # Renk paleti
 C = {
@@ -125,11 +176,13 @@ class DxfNczConverterApp:
         self._build_ui()
         self.show_page("d2n")
 
-        if windnd is not None:
+        self._drop_target = None
+        if sys.platform == "win32":
             try:
-                windnd.hook_dropfiles(self.root, func=self.on_files_dropped, force_unicode=True)
-            except Exception as e:
-                print("windnd hook error:", e)
+                from win_dnd import DropTarget
+                self._drop_target = DropTarget(self.root, self.on_files_dropped)
+            except Exception:
+                log_error("Sürükle-bırak başlatılamadı", traceback.format_exc())
 
         # EXE simgesine sürüklenen / komut satırından verilen dosyalar
         argv_paths = [a for a in sys.argv[1:] if os.path.exists(a)]
@@ -419,7 +472,7 @@ class DxfNczConverterApp:
     def on_files_dropped(self, file_list):
         if not file_list:
             return
-        paths = [p for p in (self._decode_drop_path(r) for r in file_list) if os.path.exists(p)]
+        paths = [p for p in (self._decode_drop_path(r) for r in file_list) if p and os.path.exists(p)]
         if not paths:
             return
         if len(paths) > 1 or os.path.isdir(paths[0]) or self.current_page == "batch":
@@ -920,6 +973,7 @@ class DxfNczConverterApp:
 
 def main():
     root = tk.Tk()
+    install_error_handlers(root)
     DxfNczConverterApp(root)
     root.mainloop()
 

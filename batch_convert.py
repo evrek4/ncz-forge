@@ -9,6 +9,7 @@ Klasör verilirse içindeki .ncz / .dxf dosyaları (isteğe bağlı alt klasörl
 from __future__ import annotations
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, List, Optional
 
@@ -171,21 +172,38 @@ def batch_convert(
             summary.results.append(convert_one(*job))
     else:
         results = {}
-        with ProcessPoolExecutor(max_workers=min(workers, total)) as pool:
-            futures = {pool.submit(convert_one, *job): i for i, job in enumerate(jobs)}
-            done = 0
-            for fut in as_completed(futures):
-                i = futures[fut]
-                try:
-                    results[i] = fut.result()
-                except Exception as ex:  # süreç çökmesi vb.
-                    results[i] = BatchResult(jobs[i][0], jobs[i][-1], False, error=str(ex) or ex.__class__.__name__)
-                done += 1
-                if progress_callback:
-                    progress_callback(done, total, jobs[i][0])
-                if stop_flag and stop_flag():
-                    for f2 in futures:
-                        f2.cancel()
+        retry = []  # çalışan süreç çöktüğü için sırayla yeniden denenecekler
+        done = 0
+        try:
+            with ProcessPoolExecutor(max_workers=min(workers, total)) as pool:
+                futures = {pool.submit(convert_one, *job): i for i, job in enumerate(jobs)}
+                for fut in as_completed(futures):
+                    i = futures[fut]
+                    if fut.cancelled():
+                        continue
+                    try:
+                        results[i] = fut.result()
+                    except BrokenProcessPool:
+                        retry.append(i)
+                        continue
+                    except Exception as ex:
+                        results[i] = BatchResult(jobs[i][0], jobs[i][-1], False, error=str(ex) or ex.__class__.__name__)
+                    done += 1
+                    if progress_callback:
+                        progress_callback(done, total, jobs[i][0])
+                    if stop_flag and stop_flag():
+                        for f2 in futures:
+                            f2.cancel()
+        except (BrokenProcessPool, OSError, RuntimeError):
+            # Paralel süreçler hiç başlatılamadıysa (ör. kısıtlı ortam) kalanları sırayla işle
+            retry = [i for i in range(total) if i not in results]
+        for i in sorted(set(retry)):
+            if stop_flag and stop_flag():
+                break
+            if progress_callback:
+                progress_callback(done, total, jobs[i][0])
+            results[i] = convert_one(*jobs[i])
+            done += 1
         summary.results = [results[i] for i in sorted(results)]
 
     if progress_callback:

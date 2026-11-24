@@ -56,6 +56,7 @@ jobs:
           --hidden-import matplotlib.backends.backend_pdf
           --hidden-import matplotlib.backends.backend_agg
           --hidden-import matplotlib.backends.backend_tkagg
+          --hidden-import win_dnd
           --exclude-module pytest
           --exclude-module IPython
           --exclude-module jupyter
