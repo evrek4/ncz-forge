@@ -3,91 +3,118 @@
 <p align="center">
   <img src="ncz-forge.png" width="140" alt="NCZ Forge Logo"/>
   <br/>
-  <b>Netcad NCZ & CAD Çevirici, Vektör PDF ve Yüksek Çözünürlüklü TIF Dışa Aktarma Paketi</b>
+  <b>Netcad NCZ ⮂ AutoCAD DXF Çevirici · Vektör PDF & TIF Dışa Aktarma · Toplu Dönüştürme</b>
   <br/><br/>
-  <a href="https://github.com/evrek4/ncz-forge/releases/download/v1.0/NCZ.Forge.exe">
-    <img src="https://img.shields.io/badge/%C4%B0ndir-NCZ%20Forge%20v1.0%20(Windows%20Exe)-0066cc?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows Exe"/>
+  <a href="https://github.com/evrek4/ncz-forge/releases/latest/download/NCZ.Forge.exe">
+    <img src="https://img.shields.io/badge/%C4%B0ndir-NCZ%20Forge%20(Windows%20Exe)-0066cc?style=for-the-badge&logo=windows&logoColor=white" alt="Windows için indir"/>
   </a>
-  <a href="https://github.com/evrek4/ncz-forge/releases/tag/v1.0">
-    <img src="https://img.shields.io/badge/S%C3%BCr%C3%BCm-v1.0-success?style=for-the-badge" alt="Release v1.0"/>
-  </a>
+  <br/>
+  <a href="https://github.com/evrek4/ncz-forge/releases/latest"><img src="https://img.shields.io/github/v/release/evrek4/ncz-forge?label=s%C3%BCr%C3%BCm" alt="Son sürüm"/></a>
+  <a href="https://github.com/evrek4/ncz-forge/releases"><img src="https://img.shields.io/github/downloads/evrek4/ncz-forge/total?label=indirme" alt="Toplam indirme"/></a>
+  <a href="https://github.com/evrek4/ncz-forge/actions/workflows/tests.yml"><img src="https://github.com/evrek4/ncz-forge/actions/workflows/tests.yml/badge.svg" alt="Testler"/></a>
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/ncz2dxf.png" width="49%" alt="NCZ'den DXF'e dönüştürme ekranı"/>
+  <img src="docs/screenshots/coklu.png" width="49%" alt="Çoklu dönüştürme ekranı"/>
+</p>
+
+> 🚀 **Kurulum gerektirmez:** [**NCZ.Forge.exe**](https://github.com/evrek4/ncz-forge/releases/latest/download/NCZ.Forge.exe) dosyasını indirip çift tıklayarak çalıştırın.
+
+> ⚠️ **"Windows bilgisayarınızı korudu" uyarısı:** Exe dijital olarak imzalı olmadığı için Windows SmartScreen bu uyarıyı gösterebilir. **Ek bilgi → Yine de çalıştır** seçeneğiyle açabilirsiniz. Kaynak kodun tamamı bu depodadır; v1.1 ve sonraki sürümlerin exe dosyaları GitHub Actions üzerinde bu koddan otomatik olarak derlenir.
+
+**NCZ Forge**, Netcad'in ikili (binary) formatı olan **.NCZ** dosyalarını okumak, sıfırdan oluşturmak, **AutoCAD DXF** ile iki yönlü dönüştürmek ve yüksek kaliteli **PDF / TIF** çıktıları almak için geliştirilmiş açık kaynaklı ve bağımsız bir araçtır.
+
+<details>
+<summary>🇬🇧 <b>English summary</b></summary>
+
+**NCZ Forge** is a free, open-source desktop tool for Netcad's binary **.NCZ** drawing format. It converts **NCZ ⮂ AutoCAD DXF** in both directions (layers, colours, texts, arcs, symbols), exports NCZ/DXF drawings to **vector PDF** and **high-resolution TIFF**, previews drawings, and batch-converts whole folders in parallel. Download the portable Windows exe from the [latest release](https://github.com/evrek4/ncz-forge/releases/latest) — no installation needed — or use the Python command-line tool (`python ncz_tool.py --help`). The UI is in Turkish.
+</details>
+
 ---
 
-> 🚀 **Kurulum Gerektirmez (Portable):** [**NCZ.Forge.exe (v1.0 İndir)**](https://github.com/evrek4/ncz-forge/releases/download/v1.0/NCZ.Forge.exe) dosyasını indirip doğrudan çift tıklayarak çalıştırabilirsiniz.
+## 🚀 Masaüstü Uygulaması
 
-**NCZ Forge**, Netcad'in tescilli ikili (binary) formatı olan **.NCZ** dosyalarını okumak, ayrıştırmak (parse), sıfırdan oluşturmak, **AutoCAD DXF / DWG dosyalarını NCZ formatına dönüştürmek (encode)** ve yüksek kaliteli **PDF / TIFF** çıktıları almak için geliştirilmiş modern ve bağımsız bir araç setidir.
+Sol menüden işlemi seçin; dosyaları pencereye sürükleyip bırakabilir veya tıklayarak seçebilirsiniz.
+
+| Sayfa | Ne yapar? |
+|---|---|
+| **DXF ➔ NCZ** | AutoCAD DXF çizimini Netcad NCZ'ye dönüştürür. Projeksiyon/stil için şablon NCZ seçilebilir, X/Y yer değiştirilebilir. |
+| **NCZ ➔ DXF** | NCZ'yi DXF'e dönüştürür: tabakalar, **tabaka ve nesne renkleri**, yazılar, daireler, **yaylar**, çoklu çizgiler, **semboller ve bloklar**, paftalar. |
+| **PDF & TIF** | NCZ veya DXF'i vektör **PDF** ya da LZW sıkıştırmalı **TIF** yapar. 150 / 300 / 600 DPI, beyaz veya siyah arka plan. |
+| **Çoklu Dönüştür** | Birden fazla NCZ/DXF dosyasını veya bir klasörü (alt klasörlerle) tek seferde **NCZ ⮂ DXF**, **PDF** ya da **TIF** yapar. İşlemci çekirdeklerini paralel kullanır. |
+
+Diğer özellikler:
+* **👁 Önizleme:** Dönüştürmeden önce çizimi yakınlaştırılıp kaydırılabilen bir pencerede görün.
+* **Güvenli çıktı:** Var olan bir dosyanın üzerine yazmadan önce sorulur. Toplu dönüştürmede aynı isimli çıktılar `_2`, `_3` eki alır, kaynak dosyalar asla ezilmez.
+* **Hata dayanıklılığı:** Toplu dönüştürmede bozuk bir dosya diğerlerini durdurmaz; sonunda hata raporu gösterilir.
+* **Güncelleme bildirimi:** Yeni sürüm yayınlandığında sol menüde bildirim çıkar.
+* Birden fazla dosya veya klasör sürüklenirse otomatik olarak *Çoklu Dönüştür* sayfası açılır.
 
 ---
 
-## 🚀 Hızlı Başlangıç
+## 💻 Komut Satırı (CLI)
 
-### 🖥️ 1. Masaüstü Uygulaması (Terminalsiz - İki Yönlü + PDF/TIF Aktarımı)
-Klasördeki **`NCZ Forge.exe`** (veya `dxftoncz.exe`) dosyasına çift tıklayarak modern pencereli arayüzü açabilirsiniz:
-* **Sekme 1 (DXF ➔ NCZ):** AutoCAD DXF çiziminizi Netcad NCZ formatına dönüştürür. Ayrıca seçilen DXF'i tek tıkla doğrudan PDF veya TIF yapabilir.
-* **Sekme 2 (NCZ ➔ DXF):** Netcad NCZ dosyanızı AutoCAD DXF formatına dönüştürür. Ayrıca seçilen NCZ'yi tek tıkla doğrudan PDF veya TIF yapabilir.
-* **Sekme 3 (PDF & TIF Dışa Aktar):** Hem NCZ hem DXF dosyalarını yüksek çözünürlüklü vektör **PDF** veya sıkıştırılmış raster **TIF (TIFF)** formatlarına dönüştürür. Çözünürlük (150, 300, 600 DPI) ve arka plan rengi (Beyaz/Siyah) seçilebilir.
-* **Sekme 4 (Çoklu Dönüştür):** Birden fazla NCZ ve DXF dosyasını (karışık olabilir) veya bütün bir klasörü tek seferde dönüştürür. Hedef: *NCZ ⮂ DXF (otomatik yön)*, *PDF* veya *TIF*. Çıktı klasörü seçilebilir; aynı isimli dosyalar birbirinin ve kaynak dosyaların üzerine yazılmaz (`_2`, `_3` eki alır). Hatalı bir dosya diğerlerini durdurmaz, işlem sonunda rapor gösterilir.
-* **Sürükle & Bırak:** Dosyaları doğrudan pencereye veya dosya seçiciye sürükleyip bırakabilirsiniz. Birden fazla dosya veya klasör bırakılırsa otomatik olarak *Çoklu Dönüştür* sekmesine eklenir.
+Kaynak koddan çalıştırmak için Python 3.10+ ve bağımlılıklar:
+```bash
+pip install -r requirements.txt
+```
+
+### Dosya bilgisi
+```bash
+python ncz_tool.py info examples/103_11.NCZ
+```
+Netcad sürümünü, projeksiyonu, tabakaları, obje türlerini ve sınır koordinatlarını listeler.
+
+### DXF ➔ NCZ
+```bash
+python ncz_tool.py dxf2ncz cizim.dxf cizim.NCZ --template examples/103_11.NCZ
+```
+
+### NCZ ➔ DXF
+```bash
+python ncz_tool.py ncz2dxf examples/103_11.NCZ 103_11.dxf --version R2010
+```
+
+### PDF ve TIF
+```bash
+python ncz_tool.py ncz2pdf examples/103_11.NCZ 103_11.pdf
+python ncz_tool.py ncz2tif examples/103_11.NCZ 103_11.tif --dpi 300
+python ncz_tool.py dxf2pdf examples/103_11.dxf 103_11.pdf
+python ncz_tool.py dxf2tif examples/103_11.dxf 103_11.tif --dpi 600 --bg black
+```
+
+### Çoklu (toplu) dönüştürme
+```bash
+# NCZ'ler DXF'e, DXF'ler NCZ'ye (uzantıya göre otomatik)
+python ncz_tool.py batch a.NCZ b.NCZ c.dxf --out cikti
+
+# Bir klasördeki tüm NCZ / DXF dosyaları, alt klasörler dahil, PDF olarak
+python ncz_tool.py batch proje_klasoru --recursive --to pdf
+```
+Seçenekler: `--to auto|pdf|tif`, `--out`, `--recursive`, `--jobs N` (paralel süreç sayısı; 0 = otomatik, 1 = sıralı), `--template`, `--swap-xy`, `--version`, `--dpi`, `--bg`.
+
+### Yeniden encode (doğrulama)
+```bash
+python ncz_tool.py reencode examples/103_11.NCZ yeniden.NCZ
+```
 
 ---
 
-## 💻 Komut Satırı (CLI) Kullanımı
+## 🧪 Geliştirme
 
-### 1. Dosya Bilgisi Görüntüleme
 ```bash
-python ncz_tool.py info 103_11.NCZ
-```
-Çıktı; Netcad sürümünü, projeksiyon/dilim bilgisini, tabakaları, obje türlerini ve sınır koordinatlarını listeler.
-
-### 2. DXF Dosyasını NCZ'ye Dönüştürme (DXF to NCZ - Encoder)
-```bash
-python ncz_tool.py dxf2ncz 103_11.dxf 103_11_yeni.NCZ
-```
-*İsteğe bağlı olarak mevcut bir NCZ dosyasını şablon (projeksiyon, sembol, stil mirası için) olarak verebilirsiniz:*
-```bash
-python ncz_tool.py dxf2ncz girdi.dxf cikti.NCZ --template 103_11.NCZ
+pip install -r requirements-dev.txt
+python -m pytest -q tests        # testler
+python nczforge.py               # arayüzü kaynak koddan başlat
 ```
 
-### 3. NCZ Dosyasını DXF'e Dönüştürme (NCZ to DXF - Decoder)
+**Yeni sürüm yayınlama:** `version.py` içindeki `__version__` değerini artırın, commit'leyin ve aynı numarayla bir etiket gönderin:
 ```bash
-python ncz_tool.py ncz2dxf 103_11.NCZ 103_11.dxf
+git tag v1.1.0
+git push origin v1.1.0
 ```
-
-### 4. PDF ve TIF Dışa Aktarma (NCZ / DXF to PDF & TIF)
-```bash
-# NCZ -> Vektör PDF
-python ncz_tool.py ncz2pdf 103_11.NCZ 103_11.pdf
-
-# NCZ -> Yüksek Çözünürlüklü TIF (DPI ayarlanabilir, örn: 300)
-python ncz_tool.py ncz2tif 103_11.NCZ 103_11.tif --dpi 300
-
-# DXF -> Vektör PDF
-python ncz_tool.py dxf2pdf 103_11.dxf 103_11.pdf
-
-# DXF -> Yüksek Çözünürlüklü TIF
-python ncz_tool.py dxf2tif 103_11.dxf 103_11.tif --dpi 300
-```
-
-### 5. Çoklu (Toplu) Dönüştürme
-```bash
-# Birden fazla dosya: NCZ'ler DXF'e, DXF'ler NCZ'ye (uzantıya göre otomatik)
-python ncz_tool.py batch 103_11.NCZ pafta2.NCZ cizim.dxf --out cikti
-
-# Bir klasördeki tüm NCZ / DXF dosyaları (alt klasörler dahil)
-python ncz_tool.py batch proje_klasoru --recursive
-
-# Hepsini PDF veya TIF yap
-python ncz_tool.py batch proje_klasoru --to pdf
-python ncz_tool.py batch proje_klasoru --to tif --dpi 600
-```
-Ek seçenekler: `--template` (DXF➔NCZ şablonu), `--swap-xy`, `--version` (DXF sürümü), `--bg white|black`.
-
-### 6. NCZ Dosyasını Yeniden Encode Etme (Re-encode)
-```bash
-python ncz_tool.py reencode 103_11.NCZ 103_11_reencoded.NCZ
-```
+GitHub Actions testleri çalıştırır, Windows exe'yi derler ve **NCZ.Forge.exe** olarak yeni Release'e ekler (`.github/workflows/release.yml`).
 
 ---
 
@@ -99,7 +126,7 @@ Kendi kodunuzda CAD objeleri oluşturup doğrudan `.NCZ` olarak kaydetmek için:
 from ncz_writer import NCZWriter
 
 # Şablonlu veya sıfırdan bir writer başlatın:
-writer = NCZWriter(template_path="103_11.NCZ")
+writer = NCZWriter(template_path="examples/103_11.NCZ")
 
 # Tabaka ekleme:
 writer.add_layer("PARSEL", color_code=251)
