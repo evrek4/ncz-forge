@@ -140,7 +140,7 @@ def cmd_reencode(args):
 
 
 def cmd_batch(args):
-    from batch_convert import collect_files, batch_convert
+    from batch_convert import collect_files, batch_convert, default_workers
 
     files = collect_files(args.inputs, recursive=args.recursive)
     if not files:
@@ -148,9 +148,12 @@ def cmd_batch(args):
         return 1
     print(f"Toplu dönüştürme: {len(files)} dosya, hedef = {args.to.upper()}")
 
+    workers = args.jobs if args.jobs > 0 else default_workers()
+
     def cb(i, total, path):
         if path:
-            print(f"  [{i + 1}/{total}] {os.path.basename(path)}")
+            n = i if workers > 1 else i + 1
+            print(f"  [{n}/{total}] {os.path.basename(path)}")
 
     summary = batch_convert(
         files,
@@ -162,6 +165,7 @@ def cmd_batch(args):
         dpi=args.dpi,
         bg=args.bg,
         progress_callback=cb,
+        workers=workers,
     )
     print(f"\nBaşarılı: {len(summary.succeeded)}  Hatalı: {len(summary.failed)}")
     for r in summary.failed:
@@ -170,9 +174,11 @@ def cmd_batch(args):
 
 
 def main():
+    from version import __version__
     parser = argparse.ArgumentParser(
         description="NCZ & DXF Dönüştürücü ve PDF/TIF Dışa Aktarım Aracı"
     )
+    parser.add_argument("--version", "-V", action="version", version=f"NCZ Forge {__version__}")
     subparsers = parser.add_subparsers(dest="command", help="Komutlar")
 
     # info
@@ -237,6 +243,7 @@ def main():
     p_b.add_argument("--version", default="R2010", help="NCZ->DXF için DXF sürümü (varsayılan: R2010)")
     p_b.add_argument("--dpi", type=int, default=300, help="PDF/TIF çözünürlüğü (varsayılan: 300)")
     p_b.add_argument("--bg", default="white", choices=["white", "black"], help="PDF/TIF arka plan rengi")
+    p_b.add_argument("--jobs", "-j", type=int, default=0, help="Paralel süreç sayısı (0 = otomatik, 1 = sıralı)")
 
     args = parser.parse_args()
     if not args.command:

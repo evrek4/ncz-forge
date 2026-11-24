@@ -1,0 +1,65 @@
+name: Windows Exe Derle ve Yayınla
+
+# "v1.1.0" gibi bir etiket gönderildiğinde exe derlenir ve GitHub Release'e eklenir.
+# Actions sekmesinden elle de çalıştırılabilir (o durumda exe yalnızca "artifact" olarak indirilebilir).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: pip install -r requirements-dev.txt
+
+      - name: Testleri çalıştır
+        run: python -m pytest -q tests
+
+      - name: Exe derle (PyInstaller)
+        run: >
+          pyinstaller nczforge.py --onefile --windowed --noconfirm
+          --name "NCZ.Forge"
+          --icon app_icon.ico
+          --add-data "app_icon.ico;."
+          --add-data "app_icon.png;."
+          --add-data "header_logo.png;."
+          --add-data "examples/103_11.NCZ;."
+          --hidden-import matplotlib.backends.backend_pdf
+          --hidden-import matplotlib.backends.backend_agg
+          --hidden-import matplotlib.backends.backend_tkagg
+          --exclude-module pytest
+          --exclude-module IPython
+          --exclude-module jupyter
+          --exclude-module notebook
+          --exclude-module PyQt5
+          --exclude-module PyQt6
+          --exclude-module PySide2
+          --exclude-module PySide6
+          --exclude-module scipy
+          --exclude-module pandas
+          --exclude-module wx
+
+      - name: Exe'yi artifact olarak sakla
+        uses: actions/upload-artifact@v4
+        with:
+          name: NCZ.Forge
+          path: dist/NCZ.Forge.exe
+
+      - name: GitHub Release'e yükle
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/NCZ.Forge.exe
+          generate_release_notes: true

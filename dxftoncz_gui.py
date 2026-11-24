@@ -11,6 +11,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import subprocess
+import webbrowser
 
 try:
     import windnd
@@ -19,7 +20,8 @@ except ImportError:
 
 from dxf_to_ncz import convert_dxf_to_ncz
 from ncz_to_dxf import convert_ncz_to_dxf
-from batch_convert import collect_files, batch_convert
+from batch_convert import collect_files, batch_convert, default_workers
+from version import __version__, RELEASES_URL, check_for_update
 from cad_export import (
     export_dxf_to_pdf,
     export_dxf_to_tif,
@@ -39,7 +41,7 @@ except Exception:
 class DxfNczConverterApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("NCZ Forge - Netcad NCZ & CAD Çevirici ve Dışa Aktarıcı")
+        self.root.title(f"NCZ Forge v{__version__} - Netcad NCZ & CAD Çevirici ve Dışa Aktarıcı")
         self.root.geometry("760x700")
         self.root.minsize(660, 600)
 
@@ -105,14 +107,20 @@ class DxfNczConverterApp:
         self.batch_target_var = tk.StringVar(value="auto")
         self.batch_outdir_var = tk.StringVar()
         self.batch_recursive_var = tk.BooleanVar(value=False)
+        self.batch_parallel_var = tk.BooleanVar(value=True)
         self._batch_stop = False
 
         # Set default template
-        cand_template = os.path.join(self.base_dir, "103_11.NCZ")
-        if not os.path.exists(cand_template):
-            cand_template = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "103_11.NCZ")
-        if os.path.exists(cand_template):
-            self.d2n_template_var.set(cand_template)
+        script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        for cand_template in (
+            os.path.join(self.base_dir, "103_11.NCZ"),
+            os.path.join(self.base_dir, "examples", "103_11.NCZ"),
+            os.path.join(script_dir, "103_11.NCZ"),
+            os.path.join(script_dir, "examples", "103_11.NCZ"),
+        ):
+            if os.path.exists(cand_template):
+                self.d2n_template_var.set(cand_template)
+                break
 
         self._build_ui()
 
@@ -212,6 +220,15 @@ class DxfNczConverterApp:
             bg="#0f172a",
         )
         subtitle_lbl.pack(anchor="w")
+
+        # Sağ üst: sürüm ve güncelleme bildirimi
+        right_box = tk.Frame(header_frame, bg="#0f172a")
+        right_box.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 16), pady=12)
+        tk.Label(right_box, text=f"v{__version__}", font=("Segoe UI", 9, "bold"), fg="#94a3b8", bg="#0f172a").pack(anchor="e")
+        self.lbl_update = tk.Label(right_box, text="", font=("Segoe UI", 8, "underline"), fg="#facc15", bg="#0f172a", cursor="hand2")
+        self.lbl_update.pack(anchor="e")
+        self.lbl_update.bind("<Button-1>", lambda e: webbrowser.open(RELEASES_URL))
+        threading.Thread(target=self._check_update_worker, daemon=True).start()
 
         # Main notebook (Tabs)
         main_frame = tk.Frame(self.root, bg=self.bg_color)
@@ -348,7 +365,8 @@ class DxfNczConverterApp:
             padx=10,
             pady=6,
         )
-        self.btn_d2n_tif.pack(side=tk.LEFT)
+        self.btn_d2n_tif.pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(btn_box, text="👁 Önizle", command=lambda: self.open_preview(self.d2n_dxf_var.get()), font=("Segoe UI", 9, "bold"), bg="#e2e8f0", relief=tk.RAISED, cursor="hand2", padx=8, pady=6).pack(side=tk.LEFT)
 
         # Status & Progress Frame
         prog_frame_1 = tk.Frame(self.tab_d2n, bg=self.bg_color)
@@ -587,7 +605,8 @@ class DxfNczConverterApp:
             padx=10,
             pady=6,
         )
-        self.btn_n2d_tif.pack(side=tk.LEFT)
+        self.btn_n2d_tif.pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(btn_box2, text="👁 Önizle", command=lambda: self.open_preview(self.n2d_ncz_var.get()), font=("Segoe UI", 9, "bold"), bg="#e2e8f0", relief=tk.RAISED, cursor="hand2", padx=8, pady=6).pack(side=tk.LEFT)
 
         # Status & Progress Frame
         prog_frame_2 = tk.Frame(self.tab_n2d, bg=self.bg_color)
@@ -778,7 +797,8 @@ class DxfNczConverterApp:
             cursor="hand2",
             pady=8,
         )
-        self.btn_export_dedicated.pack(fill=tk.X, pady=(2, 6))
+        self.btn_export_dedicated.pack(fill=tk.X, pady=(2, 2))
+        tk.Button(self.tab_exp, text="👁 Dışa aktarmadan önce önizle", command=lambda: self.open_preview(self.exp_input_var.get()), font=("Segoe UI", 9), bg="#e2e8f0", relief=tk.GROOVE, cursor="hand2", pady=3).pack(fill=tk.X, pady=(0, 6))
 
         # Status & Progress Frame
         prog_frame_3 = tk.Frame(self.tab_exp, bg=self.bg_color)
@@ -884,6 +904,7 @@ class DxfNczConverterApp:
         ):
             tk.Button(btns, text=text, command=cmd, font=("Segoe UI", 8), bg="#e2e8f0", relief=tk.GROOVE, padx=6).pack(side=tk.LEFT, padx=(0, 4))
         tk.Checkbutton(btns, text="Alt klasörler dahil", variable=self.batch_recursive_var, font=("Segoe UI", 8), bg=self.card_bg).pack(side=tk.LEFT, padx=(6, 0))
+        tk.Checkbutton(btns, text=f"Paralel ({default_workers()} çekirdek)", variable=self.batch_parallel_var, font=("Segoe UI", 8), bg=self.card_bg).pack(side=tk.LEFT, padx=(6, 0))
         self.lbl_batch_count = tk.Label(btns, text="0 dosya", font=("Segoe UI", 8, "bold"), bg=self.card_bg, fg="#0066cc")
         self.lbl_batch_count.pack(side=tk.RIGHT)
 
@@ -1001,6 +1022,7 @@ class DxfNczConverterApp:
             dxf_version=self.n2d_version_var.get().strip() or "R2010",
             dpi=int(self.exp_dpi_var.get()),
             bg=self.exp_bg_var.get(),
+            workers=default_workers() if self.batch_parallel_var.get() else 1,
         )
         self._batch_stop = False
         self._set_batch_running(True)
@@ -1008,7 +1030,7 @@ class DxfNczConverterApp:
 
         def cb(i, total, path):
             pct = int(i * 100 / total) if total else 100
-            text = f"[{i + 1}/{total}] {os.path.basename(path)} işleniyor..." if path else "Tamamlandı."
+            text = f"İlerleme {min(i + 1, total) if i < total else total}/{total} — {os.path.basename(path)}" if path else "Tamamlandı."
             self.root.after(0, lambda: (self.prog_batch.configure(value=pct), self.status_batch_lbl.config(text=text, fg="#0066cc")))
 
         def worker():
@@ -1042,12 +1064,66 @@ class DxfNczConverterApp:
         else:
             messagebox.showinfo("Toplu Dönüştürme", msg, parent=self.root)
 
+    # ------------------ ÖNİZLEME & GÜNCELLEME ------------------
+    def _check_update_worker(self):
+        tag = check_for_update()
+        if tag:
+            self.root.after(0, lambda: self.lbl_update.config(text=f"⬆ Yeni sürüm: {tag} (indir)"))
+
+    def open_preview(self, path: str):
+        path = (path or "").strip()
+        if not path or not os.path.exists(path):
+            messagebox.showwarning("Uyarı", "Önizleme için önce geçerli bir NCZ veya DXF dosyası seçin.", parent=self.root)
+            return
+        win = tk.Toplevel(self.root)
+        win.title(f"Önizleme - {os.path.basename(path)}")
+        win.geometry("980x720")
+        win.configure(bg=self.bg_color)
+        lbl = tk.Label(win, text="Çizim hazırlanıyor...", font=("Segoe UI", 11), bg=self.bg_color, fg="#0066cc")
+        lbl.pack(expand=True)
+
+        def worker():
+            try:
+                from cad_export import render_preview_figure
+                fig = render_preview_figure(path)
+                self.root.after(0, lambda: self._show_preview(win, lbl, fig))
+            except Exception as ex:
+                err = str(ex)
+                self.root.after(0, lambda: lbl.winfo_exists() and lbl.config(text=f"Önizleme hatası: {err[:120]}", fg="#cc0000"))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_preview(self, win, lbl, fig):
+        import matplotlib.pyplot as plt
+        if not win.winfo_exists():
+            plt.close(fig)
+            return
+        from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+        lbl.destroy()
+        canvas = FigureCanvasTkAgg(fig, master=win)
+        toolbar = NavigationToolbar2Tk(canvas, win)
+        toolbar.update()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        tk.Label(win, text="Yakınlaştırmak için büyüteç, kaydırmak için el aracını kullanın.", font=("Segoe UI", 8), bg=self.bg_color, fg="#666666").pack(anchor="w", padx=6)
+        canvas.draw()
+
+        def on_close():
+            plt.close(fig)
+            win.destroy()
+
+        win.protocol("WM_DELETE_WINDOW", on_close)
+
     # ------------------ UTILS ------------------
     def open_folder(self, target_path: str):
         p = target_path.strip()
         if p and os.path.exists(p):
             folder = os.path.dirname(os.path.abspath(p))
-            subprocess.run(["explorer", folder], shell=True)
+            if sys.platform == "win32":
+                subprocess.run(["explorer", folder], shell=True)
+            elif sys.platform == "darwin":
+                subprocess.run(["open", folder])
+            else:
+                subprocess.run(["xdg-open", folder])
 
 
 def main():
@@ -1057,4 +1133,6 @@ def main():
 
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     main()

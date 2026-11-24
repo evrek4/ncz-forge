@@ -32,6 +32,9 @@ def clean_mtext(raw_text: str) -> str:
     return text.strip()
 
 
+NCZ_PLACEHOLDER_PREFIXES = ("NCZ_SEMBOL_", "NCZ_BLOK_")
+
+
 def iter_flattened_entities(
     entities,
     parent_layer: Optional[str] = None,
@@ -56,6 +59,12 @@ def iter_flattened_entities(
         color = entity.dxf.color if hasattr(entity.dxf, "color") else 256
         if color == 0 and parent_color is not None:
             color = parent_color
+
+        # NCZ Forge'un NCZ sembol/blok referansları için ürettiği yer tutucu bloklar
+        # patlatılmaz; ekleme noktası olarak (nokta) geri yazılır.
+        if etype == "INSERT" and str(entity.dxf.name).upper().startswith(NCZ_PLACEHOLDER_PREFIXES):
+            yield (entity, layer, color)
+            continue
 
         # Explode blocks (INSERT) and DIMENSION entities into primitives
         if etype in ("INSERT", "DIMENSION") and depth < max_depth:
@@ -131,7 +140,15 @@ def convert_dxf_to_ncz(
         # 256 = ByLayer in AutoCAD -> pass 0 to let NCZ use layer default color
         col = raw_color if (raw_color is not None and raw_color != 256) else 0
 
-        if etype == "POINT":
+        if etype == "INSERT":
+            ins = entity.dxf.insert
+            x, y, z = ins.x, ins.y, ins.z
+            if swap_xy:
+                x, y = y, x
+            writer.add_point(x, y, z, layer=layer_name, color=col)
+            entity_count += 1
+
+        elif etype == "POINT":
             loc = entity.dxf.location
             x, y, z = (loc.y, loc.x, loc.z) if swap_xy else (loc.x, loc.y, loc.z)
             writer.add_point(x, y, z, layer=layer_name, color=col)

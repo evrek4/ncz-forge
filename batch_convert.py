@@ -8,6 +8,7 @@ Klasör verilirse içindeki .ncz / .dxf dosyaları (isteğe bağlı alt klasörl
 
 from __future__ import annotations
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, List, Optional
 
@@ -81,6 +82,11 @@ def output_path_for(input_path: str, target: str, output_dir: Optional[str] = No
     return os.path.join(folder, base + out_ext)
 
 
+def default_workers() -> int:
+    """Paralel dönüştürmede kullanılacak süreç sayısı (bir çekirdek arayüze bırakılır, en fazla 8)."""
+    return max(1, min(8, (os.cpu_count() or 2) - 1))
+
+
 def _unique_path(path: str, reserved: set) -> str:
     """Girdi dosyalarının ve bu turda üretilen çıktıların üzerine yazmamak için _2, _3 ekler."""
     if os.path.normcase(os.path.abspath(path)) not in reserved:
@@ -138,25 +144,50 @@ def batch_convert(
     bg: str = "white",
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
     stop_flag: Optional[Callable[[], bool]] = None,
+    workers: int = 1,
 ) -> BatchSummary:
     """
-    Dosyaları sırayla dönüştürür. Bir dosyadaki hata diğerlerini durdurmaz.
-    progress_callback(index, total, file_path): her dosya başlamadan önce çağrılır.
-    stop_flag(): True dönerse kalan dosyalar atlanır.
+    Dosyaları dönüştürür. Bir dosyadaki hata diğerlerini durdurmaz.
+    progress_callback(done, total, file_path): sıralı modda her dosya başlamadan önce,
+        paralel modda her dosya bittiğinde çağrılır; en sonda (total, total, "").
+    stop_flag(): True dönerse henüz başlamamış dosyalar atlanır.
+    workers > 1 ise dosyalar ayrı süreçlerde paralel işlenir. Sonuçlar girdi sırasıyla döner.
     """
     summary = BatchSummary()
     total = len(files)
     reserved = {os.path.normcase(os.path.abspath(f)) for f in files}
-    for i, f in enumerate(files):
-        if stop_flag and stop_flag():
-            break
-        if progress_callback:
-            progress_callback(i, total, f)
+    jobs = []
+    for f in files:
         out_path = _unique_path(output_path_for(f, target, output_dir), reserved)
         reserved.add(os.path.normcase(os.path.abspath(out_path)))
-        summary.results.append(
-            convert_one(f, target, output_dir, template_path, swap_xy, dxf_version, dpi, bg, out_path)
-        )
+        jobs.append((f, target, output_dir, template_path, swap_xy, dxf_version, dpi, bg, out_path))
+
+    if workers <= 1 or total <= 1:
+        for i, job in enumerate(jobs):
+            if stop_flag and stop_flag():
+                break
+            if progress_callback:
+                progress_callback(i, total, job[0])
+            summary.results.append(convert_one(*job))
+    else:
+        results = {}
+        with ProcessPoolExecutor(max_workers=min(workers, total)) as pool:
+            futures = {pool.submit(convert_one, *job): i for i, job in enumerate(jobs)}
+            done = 0
+            for fut in as_completed(futures):
+                i = futures[fut]
+                try:
+                    results[i] = fut.result()
+                except Exception as ex:  # süreç çökmesi vb.
+                    results[i] = BatchResult(jobs[i][0], jobs[i][-1], False, error=str(ex) or ex.__class__.__name__)
+                done += 1
+                if progress_callback:
+                    progress_callback(done, total, jobs[i][0])
+                if stop_flag and stop_flag():
+                    for f2 in futures:
+                        f2.cancel()
+        summary.results = [results[i] for i in sorted(results)]
+
     if progress_callback:
         progress_callback(total, total, "")
     return summary
