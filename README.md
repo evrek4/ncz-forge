@@ -109,7 +109,7 @@ python -m pytest -q tests        # testler
 python nczforge.py               # arayüzü kaynak koddan başlat
 ```
 
-**Yeni sürüm yayınlama:** `version.py` içindeki `__version__` değerini artırın, commit'leyin ve aynı numarayla bir etiket gönderin:
+**Yeni sürüm yayınlama:** `version.py` içindeki `__version__` değerini artırıp `main`e gönderin, sonra GitHub → **Actions → Windows Exe Derle ve Yayınla → Run workflow** deyin (etiket ve Release otomatik oluşur). Alternatif olarak aynı numarayla bir etiket de gönderebilirsiniz:
 ```bash
 git tag v1.1.0
 git push origin v1.1.0
