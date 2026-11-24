@@ -213,3 +213,24 @@ def export_ncz_to_tif(
                 os.remove(temp_dxf)
             except Exception:
                 pass
+
+
+def render_preview_figure(path: str, bg: str = "white", figsize=(10, 7)) -> plt.Figure:
+    """Önizleme penceresi için NCZ veya DXF dosyasını bir matplotlib Figure olarak çizer."""
+    ext = os.path.splitext(path)[1].lower()
+    if ext == ".dxf":
+        doc = ezdxf.readfile(path)
+        return _render_dxf_to_figure(doc, bg=bg, figsize=figsize)
+    if ext == ".ncz":
+        with tempfile.NamedTemporaryFile(suffix=".dxf", delete=False) as tmp:
+            temp_dxf = tmp.name
+        try:
+            convert_ncz_to_dxf(path, temp_dxf)
+            doc = ezdxf.readfile(temp_dxf)
+            return _render_dxf_to_figure(doc, bg=bg, figsize=figsize)
+        finally:
+            try:
+                os.remove(temp_dxf)
+            except Exception:
+                pass
+    raise ValueError(f"Desteklenmeyen dosya uzantısı: {ext}")
