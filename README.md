@@ -19,6 +19,8 @@
   <img src="docs/screenshots/coklu.png" width="49%" alt="Çoklu dönüştürme ekranı"/>
 </p>
 
+> 📚 **Ayrıntılı kullanım kılavuzu, SSS ve teknik belgeler:** [**NCZ Forge Wiki**](https://github.com/evrek4/ncz-forge/wiki)
+
 > 🚀 **Kurulum gerektirmez:** [**NCZ.Forge.exe**](https://github.com/evrek4/ncz-forge/releases/latest/download/NCZ.Forge.exe) dosyasını indirip çift tıklayarak çalıştırın.
 
 > ⚠️ **"Windows bilgisayarınızı korudu" uyarısı:** Exe dijital olarak imzalı olmadığı için Windows SmartScreen bu uyarıyı gösterebilir. **Ek bilgi → Yine de çalıştır** seçeneğiyle açabilirsiniz. Kaynak kodun tamamı bu depodadır; v1.1 ve sonraki sürümlerin exe dosyaları GitHub Actions üzerinde bu koddan otomatik olarak derlenir.
