@@ -39,6 +39,7 @@ def _post_drop(hwnd, paths):
 
 @pytest.fixture
 def app(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["nczforge.py"])  # pytest argümanları (ör. "tests" klasörü) bırakılmış dosya sanılmasın
     import tkinter as tk
     from tkinter import messagebox
     import dxftoncz_gui as g
