@@ -1,0 +1,53 @@
+name: Wiki'yi Yayınla
+
+# Depodaki wiki/ klasörünü GitHub Wiki'ye kopyalar.
+on:
+  push:
+    branches: [main]
+    paths: ["wiki/**", ".github/workflows/wiki.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wiki deposuna gönder
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          url="https://x-access-token:${TOKEN}@github.com/${REPO}.wiki.git"
+          if git clone --depth 1 "$url" wiki-repo 2>/dev/null; then
+            echo "Mevcut wiki klonlandı."
+          else
+            echo "Wiki deposu henüz yok; yeni oluşturuluyor."
+            mkdir wiki-repo
+            git -C wiki-repo init -q -b master
+            git -C wiki-repo remote add origin "$url"
+          fi
+          # wiki/ ile birebir eşitle (silinen sayfalar wiki'den de silinir)
+          find wiki-repo -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -r wiki/. wiki-repo/
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki zaten güncel."
+            exit 0
+          fi
+          git commit -q -m "Wiki güncellendi: ${GITHUB_SHA::7}"
+          if ! git push origin HEAD:master; then
+            echo "::error::Wiki'ye gönderilemedi. GitHub, wiki deposunu ilk sayfa web arayüzünden oluşturulana kadar açmaz: depo > Wiki > 'Create the first page' > Save, ardından bu iş akışını yeniden çalıştırın."
+            exit 1
+          fi
