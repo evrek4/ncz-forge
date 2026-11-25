@@ -1,5 +1,7 @@
 # Kullanım Kılavuzu
 
+🇬🇧 *English: [[User Guide|User-Guide]]*
+
 Program açıldığında solda işlem menüsü, sağda seçili işlemin sayfası bulunur. Her sayfada:
 
 - **Sürükle-bırak alanı:** Dosyayı buraya (ya da pencerenin herhangi bir yerine) bırakın veya tıklayıp seçin. Dosya yüklenince alan yeşile döner.

@@ -1,5 +1,7 @@
 # Dönüşüm Ayrıntıları
 
+🇬🇧 *English: [[Conversion Details|Conversion-Details]]*
+
 ## NCZ ➔ DXF
 
 | NCZ nesnesi | DXF karşılığı | Not |

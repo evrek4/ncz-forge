@@ -1,1 +1,1 @@
-NCZ Forge · [GitHub](https://github.com/evrek4/ncz-forge) · [Hata bildir](https://github.com/evrek4/ncz-forge/issues) · Bu wiki depodaki `wiki/` klasöründen otomatik yayınlanır.
+NCZ Forge · [GitHub](https://github.com/evrek4/ncz-forge) · [Hata bildir / Report a bug](https://github.com/evrek4/ncz-forge/issues) · Bu wiki depodaki `wiki/` klasöründen otomatik yayınlanır / Published automatically from the repository's `wiki/` folder.

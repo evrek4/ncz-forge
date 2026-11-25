@@ -1,5 +1,7 @@
 # Kurulum
 
+🇬🇧 *English: [[Installation]]*
+
 ## Windows (önerilen)
 
 NCZ Forge **kurulum gerektirmez** (portable). Tek bir `.exe` dosyasıdır.

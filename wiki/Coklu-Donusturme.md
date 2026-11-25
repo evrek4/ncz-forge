@@ -1,5 +1,7 @@
 # Çoklu (Toplu) Dönüştürme
 
+🇬🇧 *English: [[Batch Conversion|Batch-Conversion]]*
+
 ![Çoklu dönüştürme sayfası](https://raw.githubusercontent.com/evrek4/ncz-forge/main/docs/screenshots/coklu.png)
 
 Onlarca NCZ / DXF dosyasını tek tıkla dönüştürmek için **Çoklu Dönüştür** sayfasını kullanın.

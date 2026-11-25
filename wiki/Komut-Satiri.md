@@ -1,5 +1,7 @@
 # Komut Satırı (CLI)
 
+🇬🇧 *English: [[Command Line|Command-Line]]*
+
 Tüm işlemler `ncz_tool.py` ile terminalden de yapılabilir. Kaynak koddan çalıştırma için bkz. [[Kurulum]].
 
 ```bash

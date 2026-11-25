@@ -1,5 +1,7 @@
 # Sürüm Notları
 
+🇬🇧 *English: [[Release Notes|Release-Notes]]*
+
 ## v1.1.1 — 24 Kasım 2026
 
 **Düzeltmeler**

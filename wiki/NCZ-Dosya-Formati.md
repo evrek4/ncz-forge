@@ -1,5 +1,7 @@
 # NCZ Dosya Formatı
 
+🇬🇧 *English: [[NCZ File Format|NCZ-File-Format]]*
+
 > Bu sayfa teknik meraklılar ve geliştiriciler içindir. NCZ, Netcad'in belgelenmemiş ikili formatıdır; buradaki bilgiler tersine mühendislikle elde edilmiştir ve tüm Netcad sürümlerini kapsamayabilir.
 
 ## Genel yapı
