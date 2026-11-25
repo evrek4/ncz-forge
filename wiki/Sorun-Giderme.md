@@ -1,5 +1,7 @@
 # Sorun Giderme ve SSS
 
+🇬🇧 *English: [[Troubleshooting]]*
+
 ## Program bir hata verdi / beklenmedik şekilde davrandı
 
 v1.1.1 ve sonrasında tüm hatalar şu dosyaya kaydedilir:

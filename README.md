@@ -19,7 +19,7 @@
   <img src="docs/screenshots/coklu.png" width="49%" alt="Çoklu dönüştürme ekranı"/>
 </p>
 
-> 📚 **Ayrıntılı kullanım kılavuzu, SSS ve teknik belgeler:** [**NCZ Forge Wiki**](https://github.com/evrek4/ncz-forge/wiki)
+> 📚 **Ayrıntılı kullanım kılavuzu, SSS ve teknik belgeler:** [**NCZ Forge Wiki**](https://github.com/evrek4/ncz-forge/wiki) · 🇬🇧 [English wiki](https://github.com/evrek4/ncz-forge/wiki/English)
 
 > 🚀 **Kurulum gerektirmez:** [**NCZ.Forge.exe**](https://github.com/evrek4/ncz-forge/releases/latest/download/NCZ.Forge.exe) dosyasını indirip çift tıklayarak çalıştırın.
 

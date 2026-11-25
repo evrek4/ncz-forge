@@ -1,5 +1,7 @@
 # Geliştirici Rehberi
 
+🇬🇧 *English: [[Developer Guide|Developer-Guide]]*
+
 ## Proje yapısı
 
 | Dosya | Görev |
@@ -89,7 +91,7 @@ writer.save("yeni_cizim.NCZ")
 ## Yeni sürüm yayınlama
 
 1. `version.py` içindeki `__version__` değerini artırın (ör. `1.1.2`).
-2. [[Sürüm Notları|Surum-Notlari]] sayfasına (`wiki/Surum-Notlari.md`) değişiklikleri ekleyin.
+2. Değişiklikleri sürüm notlarına ekleyin (`wiki/Surum-Notlari.md` ve İngilizcesi `wiki/Release-Notes.md`).
 3. Değişiklikleri `main` dalına birleştirin.
 4. GitHub'da **Actions → Windows Exe Derle ve Yayınla → Run workflow** deyin.
 
@@ -97,4 +99,4 @@ writer.save("yeni_cizim.NCZ")
 
 ## Wiki'yi düzenleme
 
-Wiki sayfaları depodaki `wiki/` klasöründe tutulur. `main` dalında bu klasör değiştiğinde **Wiki'yi Yayınla** iş akışı sayfaları GitHub Wiki'ye otomatik kopyalar. Wiki'yi doğrudan GitHub arayüzünden düzenlemeyin; değişiklikler bir sonraki yayında üzerine yazılır.
+Wiki sayfaları depodaki `wiki/` klasöründe tutulur. `main` dalında bu klasör değiştiğinde **Wiki'yi Yayınla** iş akışı sayfaları GitHub Wiki'ye otomatik kopyalar. Wiki'yi doğrudan GitHub arayüzünden düzenlemeyin; değişiklikler bir sonraki yayında üzerine yazılır. Türkçe sayfaların dosya adları Türkçe, İngilizce sayfalarınki İngilizcedir (ör. `User-Guide.md`); her sayfanın başında diğer dildeki karşılığına bağlantı vardır.

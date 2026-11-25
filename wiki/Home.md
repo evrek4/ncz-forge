@@ -1,5 +1,7 @@
 # NCZ Forge Wiki
 
+🇬🇧 *English: [[Home (English)|English]]*
+
 **NCZ Forge**, Netcad'in **.NCZ** çizim dosyalarını AutoCAD **DXF** formatına (ve tersine) dönüştüren, **PDF / TIF** çıktısı alan ve çok sayıda dosyayı tek seferde işleyebilen ücretsiz, açık kaynaklı bir Windows programıdır.
 
 ![NCZ Forge ana ekranı](https://raw.githubusercontent.com/evrek4/ncz-forge/main/docs/screenshots/ncz2dxf.png)
